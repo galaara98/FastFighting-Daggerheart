@@ -210,7 +210,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       grapple: verbName("strength", "grapple"), maneuver: verbName("agility", "maneuver"), hide: verbName("finesse", "hide"),
       restrained: conditionName("restrained"), vulnerable: conditionName("vulnerable"), hidden: conditionName("hidden")
     } }));
-    actions.push(helpAnAlly({ id, label: t("HelpAnAlly"), ranges: r }));
+    actions.push(helpAnAlly({ id, label: t("HelpAnAlly"), given: t("Helped"), ranges: r }));
     const experiences = Object.values(sys.experiences ?? {}).map(e => ({ name: e.name, value: num(e.value) })).filter(e => e.value > 0).sort((a, b) => b.value - a.value);
     const names = Object.fromEntries(TRAITS.map(k => [k, traitName(k)]));
     const kinds = currency();

@@ -84,7 +84,7 @@ describe("what a character can do", () => {
   });
 
   test("Help an Ally: a Hope for a d6 on a friend's next action roll, no spotlight of its own, never itself", () => {
-    expect(helpAnAlly({ id: "w" })).toMatchObject({ kind: "buff", resource: "hope", resourceCost: 1, economy: "free", includeSelf: false, outcome: { mods: { attackDie: 6, checkDie: 6 }, uses: 1 } });
+    expect(helpAnAlly({ id: "w", given: "a d6" })).toMatchObject({ kind: "buff", resource: "hope", resourceCost: 1, economy: "free", oncePerTurn: true, includeSelf: false, outcome: { mods: { attackDie: 6, checkDie: 6 }, uses: 1, label: "a d6" } });
   });
 
   test("a spell is a spell attack (its caster counts as one)", () => {

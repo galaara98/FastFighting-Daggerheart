@@ -189,10 +189,11 @@ export function traitMoves({ id, traits = {}, names = {}, ranges = RANGES }) {
  * Help an Ally: a Hope spent to help a friend with its next action roll, an advantage die (a d6) on top of whatever it
  * rolls (it stacks; never on a reaction roll). No spotlight of its own: it's part of the friend's roll.
  */
-export function helpAnAlly({ id, label = "", ranges = RANGES }) {
+export function helpAnAlly({ id, label = "", given = "", ranges = RANGES }) {
   return {
     // (Anyone can: not a specialty, though it costs a Hope.)
-    id: `${id}.help`, name: label, kind: "buff", resource: "hope", resourceCost: 1, economy: "free", includeSelf: false, special: false,
-    outcome: { mods: { attackDie: 6, checkDie: 6 }, uses: 1, rounds: 2, label }, ...reachOf("close", ranges)
+    // (Once in its spotlight: a Hope for one friend's next roll, not every friend's at once.)
+    id: `${id}.help`, name: label, kind: "buff", resource: "hope", resourceCost: 1, economy: "free", oncePerTurn: true, includeSelf: false, special: false,
+    outcome: { mods: { attackDie: 6, checkDie: 6 }, uses: 1, rounds: 2, label: given || label }, ...reachOf("close", ranges)
   };
 }
