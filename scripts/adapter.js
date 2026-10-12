@@ -21,7 +21,7 @@ import { toActionSpec, traitMoves, helpAnAlly, RANGES } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast } from "./traits.js";
 import { commitDaggerheartOutcome, describeDaggerheartOutcome, describeFear, commitFear, commitDaggerheartConcession } from "./commit.js";
-import { t, systemWord } from "./words.js";
+import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
 const TRAITS = Object.freeze(["agility", "strength", "finesse", "instinct", "presence", "knowledge"]);
@@ -413,8 +413,8 @@ export class DaggerheartAdapter extends SystemAdapter {
       title: t("Plan.Title"),
       hint: t("Plan.Hint"),
       fields: [
-        { key: "fear", type: "select", label: t("Plan.Fear"), hint: t("Plan.FearHint"), value: String(fear), choices: Array.from({ length: FEAR_MAX + 1 }, (_, n) => ({ value: String(n), label: String(n) })) },
-        { key: "spending", type: "pills", label: t("Plan.Spending"), hint: t("Plan.SpendingHint"), value: spending, choices: Object.keys(FEAR_SPENDING).map(k => ({ value: k, label: t(`Plan.${k}`), hint: t(`Plan.${k}Hint`) })) }
+        { key: "fear", type: "select", label: resourceWord("fear"), hint: t("Plan.FearHint"), value: String(fear), choices: Array.from({ length: FEAR_MAX + 1 }, (_, n) => ({ value: String(n), label: String(n) })) },
+        { key: "spending", type: "pills", label: t("Plan.Spending", { fear: resourceWord("fear") }), hint: t("Plan.SpendingHint"), value: spending, choices: Object.keys(FEAR_SPENDING).map(k => ({ value: k, label: t(`Plan.${k}`), hint: t(`Plan.${k}Hint`) })) }
       ]
     };
   }

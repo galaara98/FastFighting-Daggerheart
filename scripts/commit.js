@@ -10,7 +10,7 @@
  *     tokenUpdate, createdActors, createdTokens, deletedTokens, statuses: [{id, active}], combatant, setting }
  */
 import { STATUS } from "./core.js";
-import { t, systemWord } from "./words.js";
+import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
 
@@ -38,15 +38,15 @@ export function describeDaggerheartOutcome(spec, final) {
   const s = final.system ?? {};
   const hpBefore = hpMarked(spec, spec.hp.value);
   const hpAfter = hpMarked(spec, final.hp);
-  if ( hpAfter !== hpBefore ) lines.push(t("Out.HitPoints", { from: hpBefore, to: hpAfter, max: spec.hp.max }));
+  if ( hpAfter !== hpBefore ) lines.push(t("Out.HitPoints", { name: resourceWord("hp"), from: hpBefore, to: hpAfter, max: spec.hp.max }));
   if ( Number.isFinite(s.stress) ) {
     const before = stressMarked(spec, spec.resources?.stress ?? 0);
     const after = stressMarked(spec, s.stress);
-    if ( after !== before ) lines.push(t("Out.Stress", { from: before, to: after, max: spec.stressMax ?? 0 }));
+    if ( after !== before ) lines.push(t("Out.Stress", { name: resourceWord("stress"), from: before, to: after, max: spec.stressMax ?? 0 }));
   }
   if ( spec.duality ) {
-    if ( Number.isFinite(s.hope) && s.hope !== spec.resources?.hope ) lines.push(t("Out.Hope", { from: spec.resources?.hope ?? 0, to: s.hope }));
-    if ( s.armorMarked > 0 ) lines.push(t("Out.Armor", { n: s.armorMarked }));
+    if ( Number.isFinite(s.hope) && s.hope !== spec.resources?.hope ) lines.push(t("Out.Hope", { name: resourceWord("hope"), from: spec.resources?.hope ?? 0, to: s.hope }));
+    if ( s.armorMarked > 0 ) lines.push(t("Out.Armor", { name: resourceWord("armor"), n: s.armorMarked }));
     for ( const [key, left] of Object.entries(s.items ?? {}) ) {
       const used = (spec.resources?.[key] ?? 0) - left;
       const name = spec.actions?.find(a => a.resource === key)?.name ?? "";
@@ -258,7 +258,7 @@ export function describeFear(plan, replay) {
   if ( !plan ) return null;
   const { before, after } = fearAfter(plan, replay);
   if ( before === after ) return null;
-  return { title: t("Encounter.Title"), lines: [t("Encounter.Fear", { from: before, to: after })] };
+  return { title: t("Encounter.Title"), lines: [t("Encounter.Fear", { name: resourceWord("fear"), from: before, to: after })] };
 }
 
 /** The GM's Fear, written to the world (its undo puts it back). */

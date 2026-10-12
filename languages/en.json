@@ -64,14 +64,14 @@
       "hope": "Hope",
       "stress": "Stress",
       "fear": "Fear",
-      "armor": "Armor"
+      "armor": "Armor Slots",
+      "hp": "Hit Points"
     },
     "Plan": {
       "Title": "Daggerheart",
       "Hint": "How the GM runs this fight: the Fear it starts with, and how freely it spends Fear to bring more adversaries into the spotlight.",
-      "Fear": "Fear",
       "FearHint": "The Fear the GM has going in. It starts as the world's Fear, and Make it So writes back what the fight leaves.",
-      "Spending": "Spending Fear",
+      "Spending": "Spending {fear}",
       "SpendingHint": "On a GM turn, one adversary takes the spotlight. The GM can spend a Fear for each one more.",
       "sparing": "Sparing",
       "sparingHint": "One more adversary in a GM turn, only while the GM holds more than 4 Fear.",
@@ -81,10 +81,10 @@
       "freeHint": "As many more adversaries as there is Fear for."
     },
     "Out": {
-      "HitPoints": "Hit Points marked: {from} → {to} (of {max})",
-      "Stress": "Stress marked: {from} → {to} (of {max})",
-      "Hope": "Hope: {from} → {to}",
-      "Armor": "Armor Slots marked: {n}",
+      "HitPoints": "{name} marked: {from} → {to} (of {max})",
+      "Stress": "{name} marked: {from} → {to} (of {max})",
+      "Hope": "{name}: {from} → {to}",
+      "Armor": "{name} marked: {n}",
       "DeathMove": "Death move: {move}",
       "Dies": "Dies",
       "Unconscious": "Unconscious",
@@ -101,7 +101,7 @@
     },
     "Encounter": {
       "Title": "The GM's Fear",
-      "Fear": "Fear: {from} → {to}"
+      "Fear": "{name}: {from} → {to}"
     },
     "Settings": {
       "loreBoost": {
