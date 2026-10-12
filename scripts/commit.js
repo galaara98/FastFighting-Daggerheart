@@ -60,11 +60,55 @@ export function describeDaggerheartOutcome(spec, final) {
     return lines;
   }
   if ( final.status === STATUS.DEAD ) lines.push(t("Out.Killed"));
-  else if ( final.status === STATUS.BEATEN ) lines.push(t("Out.Defeated"));
+  else if ( final.status === STATUS.BEATEN ) {
+    // (What defeated means is the table's: the world's Defeated automation, when it's on, says which status.)
+    const as = beatenStatus();
+    lines.push(as === "defeated" ? t("Out.Defeated") : t("Out.DefeatedAs", { status: statusName(as) }));
+  } else if ( final.status === STATUS.DOWN ) lines.push(t("Out.Unconscious"));
   else if ( final.status === STATUS.FLED ) lines.push(final.swayed ? t("Out.TalkedAway") : t("Out.Fled"));
   else if ( final.status === STATUS.SURRENDERED ) lines.push(t("Out.Surrenders"));
   else if ( final.status === STATUS.STOOD_DOWN ) lines.push(t("Out.StandsDown"));
   return lines;
+}
+
+/** Daggerheart's statuses for one out of the fight. */
+const DEFEAT = ["dead", "defeated", "unconscious", "deathMove"];
+
+/**
+ * The status the world's own Defeated automation lays on one whose last Hit Point is marked (its setting: an
+ * adversary's, a character's, a companion's), or null with it off.
+ */
+function worldDefeat(type) {
+  try {
+    const d = game.settings.get("daggerheart", "Automation")?.defeated;
+    if ( !d?.enabled ) return null;
+    return (type === "character" ? d.characterDefault : type === "companion" ? d.companionDefault : d.adversaryDefault) || null;
+  } catch ( err ) {
+    return null;
+  }
+}
+
+/** A beaten adversary's status: what the world's Defeated automation says (the table decides), else defeated. */
+function beatenStatus() {
+  const own = worldDefeat("adversary");
+  return DEFEAT.includes(own) && own !== "deathMove" ? own : "defeated";
+}
+
+/** A status's name, as the system calls it. */
+function statusName(id) {
+  const s = globalThis.CONFIG?.statusEffects?.find(e => e.id === id);
+  return s?.name ? game.i18n.localize(s.name) : id;
+}
+
+/**
+ * One status for how it ended, the one wanted (or none): any other the system laid on by itself when its last Hit
+ * Point was marked (its Defeated automation: a death move to make, dead) comes off, the fight having settled it.
+ */
+async function settleDefeat(actor, want, undo) {
+  for ( const id of DEFEAT ) {
+    if ( id !== want && statusesOf(actor).has(id) && !undo.statusesBefore.includes(id) ) await setStatus(actor, id, false, undo);
+  }
+  if ( want ) await setStatus(actor, want, true, undo, { overlay: want !== "unconscious" });
 }
 
 async function setStatus(actor, id, active, undo, { overlay = false } = {}) {
@@ -114,15 +158,16 @@ export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = 
         await armor.update({ "system.armor.current": after });
       }
     }
-    if ( final.status === STATUS.DEAD ) await setStatus(actor, "dead", true, undo, { overlay: true });
-    else if ( final.status === STATUS.DOWN ) await setStatus(actor, "unconscious", true, undo);
+    // (The Hit Points first: the system's own Defeated automation reacts to them, and its status is then settled.)
     if ( Object.keys(update).length ) await actor.update(update);
+    await settleDefeat(actor, final.status === STATUS.DEAD ? "dead" : final.status === STATUS.DOWN ? "unconscious" : null, undo);
     return undo;
   }
   if ( Object.keys(update).length ) await actor.update(update);
-  // Defeated (beaten: the table says what that means), or killed by one who would.
-  if ( final.status === STATUS.DEAD || final.status === STATUS.BEATEN ) {
-    await setStatus(actor, final.status === STATUS.DEAD ? "dead" : "defeated", true, undo, { overlay: true });
+  // Killed by one who would; beaten (the table says what that means: the world's Defeated automation); knocked out by
+  // one who holds back.
+  await settleDefeat(actor, final.status === STATUS.DEAD ? "dead" : final.status === STATUS.BEATEN ? beatenStatus() : final.status === STATUS.DOWN ? "unconscious" : null, undo);
+  if ( [STATUS.DEAD, STATUS.BEATEN, STATUS.DOWN].includes(final.status) ) {
     const combatant = game.combat?.getCombatantsByToken?.(tokenDoc)?.[0];
     if ( combatant && !combatant.defeated ) {
       await combatant.update({ defeated: true });

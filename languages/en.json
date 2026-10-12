@@ -91,6 +91,7 @@
       "Retreated": "Retreated",
       "Scar": "Gains a scar",
       "Defeated": "Defeated",
+      "DefeatedAs": "Defeated: {status} (the world's Defeated setting)",
       "TalkedAway": "Talked away",
       "Fled": "Fled",
       "Surrenders": "Surrenders",
@@ -109,7 +110,7 @@
       }
     },
     "HelpAnAlly": "Help an Ally",
-    "Helped": "a d6 on their next roll",
+    "Helped": "helped (a d6 on their next roll)",
     "Verb": {
       "grapple": "Grapple",
       "maneuver": "Maneuver",
