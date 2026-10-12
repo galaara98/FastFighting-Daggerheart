@@ -1,0 +1,14 @@
+{
+  "name": "fast-fighting-daggerheart",
+  "private": true,
+  "type": "module",
+  "description": "Development tooling for the FastFighting Daggerheart Foundry VTT module",
+  "scripts": {
+    "test": "vitest run",
+    "test:reworded": "vitest run --mode reworded",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "4.1.11"
+  }
+}

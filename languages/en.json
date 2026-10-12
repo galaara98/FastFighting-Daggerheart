@@ -1,0 +1,102 @@
+{
+  "FFDAGGERHEART": {
+    "Label": "Daggerheart",
+    "NeedsCore": "FastFighting Daggerheart needs the FastFighting module (the core) to be active.",
+    "CoreTooOld": "FastFighting Daggerheart needs a newer version of FastFighting. Update FastFighting.",
+    "Note": {
+      "Hope": "Hope {hope} · Fear {fear}: with Hope",
+      "Fear": "Hope {hope} · Fear {fear}: with Fear",
+      "Crit": "Hope {hope} · Fear {fear}: a critical success",
+      "Reaction": "Hope {hope} · Fear {fear}",
+      "Experience": "{name} +{value} (a Hope)"
+    },
+    "Spotlight": {
+      "Gm": "the spotlight swings to the GM: {name}",
+      "Fear": "the GM spends a Fear to spotlight {name} too ({fear} left)"
+    },
+    "Minion": {
+      "More": "{names} fall with it"
+    },
+    "DeathMove": {
+      "blaze": "Blaze of Glory",
+      "risk": "Risk It All",
+      "avoid": "Avoid Death",
+      "BlazeNote": "Blaze of Glory: one last action, then death",
+      "RiskDies": "Risk It All: Hope {hope}, Fear {fear}, and death",
+      "RiskLives": "Risk It All: Hope {hope}, Fear {fear}, back up with {n} Hit Points",
+      "RiskAll": "Risk It All: Hope {hope}, Fear {fear}, matching: every Hit Point and Stress cleared",
+      "Avoid": "Avoid Death: out cold (Hope die {n})",
+      "AvoidScar": "Avoid Death: out cold, and a scar (Hope die {n})"
+    },
+    "Reason": {
+      "Beast": "{kind}, a beast",
+      "Tier": "{kind}, tier {tier}"
+    },
+    "Lead": {
+      "Presence": "Presence {n}",
+      "Type": "{kind}, tier {tier}"
+    },
+    "Trait": {
+      "agility": "Agility",
+      "strength": "Strength",
+      "finesse": "Finesse",
+      "instinct": "Instinct",
+      "presence": "Presence",
+      "knowledge": "Knowledge"
+    },
+    "Type": {
+      "bruiser": "Bruiser",
+      "horde": "Horde",
+      "leader": "Leader",
+      "minion": "Minion",
+      "ranged": "Ranged",
+      "skulk": "Skulk",
+      "social": "Social",
+      "solo": "Solo",
+      "standard": "Standard",
+      "support": "Support"
+    },
+    "Unarmed": "Unarmed",
+    "Difficulty": "Difficulty",
+    "Resource": {
+      "hope": "Hope",
+      "stress": "Stress",
+      "fear": "Fear",
+      "armor": "Armor"
+    },
+    "Plan": {
+      "Title": "Daggerheart",
+      "Hint": "How the GM runs this fight: the Fear it starts with, and how freely it spends Fear to bring more adversaries into the spotlight.",
+      "Fear": "Fear",
+      "FearHint": "The Fear the GM has going in. It starts as the world's Fear, and Make it So writes back what the fight leaves.",
+      "Spending": "Spending Fear",
+      "SpendingHint": "On a GM turn, one adversary takes the spotlight. The GM can spend a Fear for each one more.",
+      "sparing": "Sparing",
+      "sparingHint": "One more adversary in a GM turn, only while the GM holds more than 4 Fear.",
+      "steady": "Steady",
+      "steadyHint": "One more adversary in a GM turn, while the GM holds more than 1 Fear.",
+      "free": "Free",
+      "freeHint": "As many more adversaries as there is Fear for."
+    },
+    "Out": {
+      "HitPoints": "Hit Points marked: {from} → {to} (of {max})",
+      "Stress": "Stress marked: {from} → {to} (of {max})",
+      "Hope": "Hope: {from} → {to}",
+      "Armor": "Armor Slots marked: {n}",
+      "DeathMove": "Death move: {move}",
+      "Dies": "Dies",
+      "Unconscious": "Unconscious",
+      "Retreated": "Retreated",
+      "Scar": "Gains a scar",
+      "Defeated": "Defeated",
+      "TalkedAway": "Talked away",
+      "Fled": "Fled",
+      "Surrenders": "Surrenders",
+      "StandsDown": "Stands down"
+    },
+    "Encounter": {
+      "Title": "The GM's Fear",
+      "Fear": "Fear: {from} → {to}"
+    }
+  }
+}
