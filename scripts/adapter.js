@@ -20,6 +20,7 @@ import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
 import { toActionSpec, traitMoves, helpAnAlly, RANGES } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast } from "./traits.js";
+import { daggerheartHints, daggerheartTactics, biographyText } from "./auto.js";
 import { commitDaggerheartOutcome, describeDaggerheartOutcome, describeFear, commitFear, commitDaggerheartConcession } from "./commit.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
@@ -389,6 +390,31 @@ export class DaggerheartAdapter extends SystemAdapter {
       social: { mindless: true, languages: [], pitches: {}, resist: {} },
       leadership: null
     };
+  }
+
+  /** What a character's system says for setting it up by itself: its class's domains, an adversary's type, a beast's motives. */
+  #facts(actor) {
+    const pc = actor.type === "character";
+    const domains = pc ? [...new Set(actor.items.filter(i => i.type === "class").flatMap(i => [...(i.system.domains ?? [])]))] : [];
+    return { pc, domains, type: pc ? null : actor.system.type ?? null, beast: !pc && isBeast(actor.system.motivesAndTactics) };
+  }
+
+  /** The playstyles Daggerheart says fit it (auto.js): a class by its domains, an adversary by its type, a beast. */
+  playstyleHints(actor) {
+    if ( !["character", "adversary"].includes(actor?.type) ) return {};
+    return daggerheartHints(this.#facts(actor));
+  }
+
+  /** Its own answers to the tactics questions (auto.js): a class's style by its domains, an adversary's by its type. */
+  tacticHints(actor) {
+    if ( !["character", "adversary"].includes(actor?.type) ) return {};
+    return daggerheartTactics(this.#facts(actor));
+  }
+
+  /** Its biography (what was written, not the class's questions), description, motives and Experiences, as text. */
+  biography(actor) {
+    const sys = actor?.system ?? {};
+    return biographyText({ bio: sys.biography, description: sys.description, motives: sys.motivesAndTactics, experiences: sys.experiences });
   }
 
   deriveTraits(actor) {

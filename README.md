@@ -8,7 +8,7 @@ Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFig
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
-- **Needs:** FastFighting Core (API 11)
+- **Needs:** FastFighting Core (API 12)
 
 ## Installation
 
@@ -74,6 +74,18 @@ Tactics answers:
 - Tending a friend out cold: an Instinct or Knowledge action roll against Difficulty 12 keeps it safe from a finishing blow; a critical clears a Hit Point and gets it up.
 - Which trait each move uses, what Grapple and Maneuver lay on a foe, and Difficulty 12 for Hide, Sprint, doors and tending.
 - An adversary's gold: the SRD doesn't count it, so a humanoid adversary is reckoned to carry a handful a tier (a Leader's or a Solo's twice that), a beast or a Minion none: something to steal, or to pay with in a standoff.
+
+## Set up by itself
+
+When FastFighting sets a character up by itself (the first time it sees it: see the core's README), Daggerheart has its say, from data, never names:
+- **A character, by its class's two domains** (a homebrew class counts as its domains say):
+  - Blade a Brawler; Bone a Speed-Runner; Valor a Tank and a Martyr; Midnight a Thief and a Wallflower; Grace a Diplomat and a People-Pleaser; Codex a Lore-Collector; Splendor an Enabler and a Moralist; Sage a Lore-Collector and an Enabler; Arcana Un-Mundane.
+  - Its fighting style is its domains' too: Valor a protector (guarding its friends, marking Armor Slots freely, going to a friend who falls); Arcana or Codex a caster; Blade the front line; Sage at range; Midnight or Bone a skirmisher. Splendor heals readily; Grace talks when it could work.
+- **An adversary, by its type:**
+  - a Bruiser a Brawler and a Tank; a Horde a Brawler, relentless; a Leader leads; a Minion follows; a Ranged one a Wallflower; a Skulk a Wallflower, a Thief, a little cruel; a Social one a Diplomat; a Solo Relentless; a Support an Enabler.
+  - Its fighting style and first target follow its type: a Skulk flanks the weakest; a Ranged one shoots, casters first; a Solo never retreats.
+- **A beast** (its motives: hunt, feed and the like) fights on instinct: no talker's pill, and it never talks.
+- **Keywords:** its biography (what was written, not the class's questions), description, motives and tactics, and its Experiences' names.
 
 ## The planner's Daggerheart row
 
