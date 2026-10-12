@@ -8,7 +8,8 @@
  *  - healing that clears Hit Points: a heal;
  *  - effect: what its effects do that the engine knows (bonuses to rolls and damage, Evasion, the conditions
  *    Vulnerable, Hidden and Restrained), on itself, a friend or a foe.
- * Its cost (Hope, Stress, Fear, an Armor Slot; the first of them) and its uses carry over. Ranges are the system's
+ * A spellcast attack is a spell attack (its caster counts as one). Its cost (Hope, Stress, Fear, an Armor Slot; the first
+ * of them) and its uses carry over. Ranges are the system's
  * (Melee, Very Close, Close, Far, Very Far), in feet. Other kinds of action (summons, countdowns, macros, beastforms)
  * aren't played.
  * Pure: no Foundry globals.
@@ -136,7 +137,7 @@ export function toActionSpec(action, ctx) {
       }
       const riders = effect?.conditions && Object.keys(effect.conditions).length ? [{ kind: "condition", conditions: effect.conditions, rounds: 2, label: ctx.label ?? "" }] : undefined;
       return {
-        ...base, kind: "strike", bonus, damage: parts, ...(where ?? reachOf("melee", ctx.ranges)), ...area, effects: riders,
+        ...base, kind: kind === "spellcast" ? "spell-attack" : "strike", bonus, damage: parts, ...(where ?? reachOf("melee", ctx.ranges)), ...area, effects: riders,
         ...(ctx.critOn && ctx.critOn < 20 ? { critOn: ctx.critOn } : {}), ...(ctx.horde ? { horde: ctx.horde } : {}),
         magical: kind === "spellcast" || list(action.damage?.main?.type).includes("magical")
       };
@@ -162,4 +163,35 @@ export function toActionSpec(action, ctx) {
     default:
       return null;
   }
+}
+
+/**
+ * The moves anyone can make with a trait (the SRD's trait verbs), each an action roll against the foe's Difficulty:
+ *  - Grapple (Strength): the foe Restrained, until it clears it (two rounds, here);
+ *  - Maneuver (Agility): an opening, the foe Vulnerable until it next acts;
+ *  - Hide (Finesse), against Difficulty 12: Hidden (rolls against it at disadvantage) until it attacks.
+ * The SRD lets a character attempt these as any action; which trait and what comes of it is this module's reading.
+ * @param {object} ctx  {id, traits, names: {grapple, maneuver, hide, restrained, vulnerable, hidden}, ranges}
+ */
+export function traitMoves({ id, traits = {}, names = {}, ranges = RANGES }) {
+  const melee = reachOf("melee", ranges);
+  const restrained = { conditions: { restrained: 1, immobilized: 1 }, rounds: 2, label: names.restrained ?? "" };
+  const vulnerable = { conditions: { vulnerable: 1 }, rounds: 1, label: names.vulnerable ?? "" };
+  const hidden = { conditions: { hidden: 1 }, rounds: 2, label: names.hidden ?? "" };
+  return [
+    { id: `${id}.grapple`, name: names.grapple ?? "", kind: "control", check: { mod: num(traits.strength), against: "ac" }, onHit: [null, null, restrained, restrained], traitMove: "grapple", ...melee },
+    { id: `${id}.maneuver`, name: names.maneuver ?? "", kind: "control", check: { mod: num(traits.agility), against: "ac" }, onHit: [null, null, vulnerable, vulnerable], traitMove: "maneuver", ...melee },
+    { id: `${id}.hide`, name: names.hide ?? "", kind: "buff", targets: "self", check: { mod: num(traits.finesse), dc: 12 }, onDegree: [null, null, hidden, hidden], traitMove: "hide" }
+  ];
+}
+
+/**
+ * Help an Ally: a Hope spent to help a friend with its next action roll, an advantage die (a d6) on top of whatever it
+ * rolls (it stacks; never on a reaction roll). No spotlight of its own: it's part of the friend's roll.
+ */
+export function helpAnAlly({ id, label = "", ranges = RANGES }) {
+  return {
+    id: `${id}.help`, name: label, kind: "buff", resource: "hope", resourceCost: 1, economy: "free", includeSelf: false,
+    outcome: { mods: { attackDie: 6, checkDie: 6 }, uses: 1, rounds: 2, label }, ...reachOf("close", ranges)
+  };
 }

@@ -2,7 +2,8 @@
  * Daggerheart "Make it So": write one simulated outcome onto a token's actor, returning an undo record.
  * A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), and how it ended up (out cold from
  * Avoid Death, a scar; dead). An adversary: Hit Points and Stress marked, and defeated (dead) or gone. The GM's Fear
- * (the world's), as the fight left it.
+ * (the world's), as the fight left it. Consumables used come off what it carries; gold or an item it gave up (a deal, a
+ * demand, a theft) goes to whoever it went to.
  *
  * Undo record shape (consumed by the core's make-it-so.js):
  *   { tokenUuid, actorUuid, actorUpdate, itemUpdates: [{id, update}], createdItems, deletedItems, createdEffects,
@@ -46,6 +47,11 @@ export function describeDaggerheartOutcome(spec, final) {
   if ( spec.duality ) {
     if ( Number.isFinite(s.hope) && s.hope !== spec.resources?.hope ) lines.push(t("Out.Hope", { from: spec.resources?.hope ?? 0, to: s.hope }));
     if ( s.armorMarked > 0 ) lines.push(t("Out.Armor", { n: s.armorMarked }));
+    for ( const [key, left] of Object.entries(s.items ?? {}) ) {
+      const used = (spec.resources?.[key] ?? 0) - left;
+      const name = spec.actions?.find(a => a.resource === key)?.name ?? "";
+      if ( used > 0 ) lines.push(t("Out.Used", { name, n: used }));
+    }
     if ( s.deathMove ) lines.push(t("Out.DeathMove", { move: deathMoveName(s.deathMove) }));
     if ( final.status === STATUS.DEAD ) lines.push(t("Out.Dies"));
     else if ( final.status === STATUS.DOWN ) lines.push(t("Out.Unconscious"));
@@ -53,7 +59,8 @@ export function describeDaggerheartOutcome(spec, final) {
     if ( s.scarred ) lines.push(t("Out.Scar"));
     return lines;
   }
-  if ( final.status === STATUS.DEAD ) lines.push(t("Out.Defeated"));
+  if ( final.status === STATUS.DEAD ) lines.push(t("Out.Killed"));
+  else if ( final.status === STATUS.BEATEN ) lines.push(t("Out.Defeated"));
   else if ( final.status === STATUS.FLED ) lines.push(final.swayed ? t("Out.TalkedAway") : t("Out.Fled"));
   else if ( final.status === STATUS.SURRENDERED ) lines.push(t("Out.Surrenders"));
   else if ( final.status === STATUS.STOOD_DOWN ) lines.push(t("Out.StandsDown"));
@@ -88,6 +95,15 @@ export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = 
   if ( spec.duality ) {
     if ( Number.isFinite(s.hope) ) set("system.resources.hope.value", s.hope);
     if ( s.scarred ) set("system.scars", (Number(actor.system.scars) || 0) + 1);
+    // Consumables used.
+    for ( const [key, left] of Object.entries(s.items ?? {}) ) {
+      const item = actor.items.get(key.slice("item:".length));
+      const used = (spec.resources?.[key] ?? 0) - left;
+      if ( !item || !(used > 0) ) continue;
+      const before = Number(item.system.quantity) || 0;
+      undo.itemUpdates.push({ id: item.id, update: { "system.quantity": before } });
+      await item.update({ "system.quantity": Math.max(0, before - used) });
+    }
     // Armor Slots marked: on the armor it wears.
     const armor = actor.system.armor ?? actor.items.find(i => i.type === "armor" && i.system.equipped);
     if ( armor && s.armorMarked > 0 ) {
@@ -104,8 +120,9 @@ export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = 
     return undo;
   }
   if ( Object.keys(update).length ) await actor.update(update);
-  if ( final.status === STATUS.DEAD ) {
-    await setStatus(actor, "dead", true, undo, { overlay: true });
+  // Defeated (beaten: the table says what that means), or killed by one who would.
+  if ( final.status === STATUS.DEAD || final.status === STATUS.BEATEN ) {
+    await setStatus(actor, final.status === STATUS.DEAD ? "dead" : "defeated", true, undo, { overlay: true });
     const combatant = game.combat?.getCombatantsByToken?.(tokenDoc)?.[0];
     if ( combatant && !combatant.defeated ) {
       await combatant.update({ defeated: true });
@@ -116,6 +133,72 @@ export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = 
     await tokenDoc.update({ hidden: true });
   }
   return undo;
+}
+
+/** Gold as the world's currency has it, from an amount in its smallest coin: {chests, bags, handfuls, coins}. */
+function goldFor(amount, kinds) {
+  const out = {};
+  let left = Math.max(0, Math.floor(amount));
+  for ( const k of kinds ) {
+    out[k.key] = Math.floor(left / k.value);
+    left -= out[k.key] * k.value;
+  }
+  return out;
+}
+
+/**
+ * Hand over what a creature gave up (or had stolen): gold, or one item. A character pays from its gold (made back into
+ * chests, bags, handfuls and coins); an adversary counts no gold (the SRD doesn't), so only the one it goes to gains.
+ * Returns undo records.
+ * @param {object[]} kinds  the world's currency, largest first: [{key, value}]
+ */
+export async function commitDaggerheartConcession(giverDoc, receiverDoc, concession, kinds) {
+  const giver = giverDoc?.actor;
+  if ( !giver ) return [];
+  const receiver = receiverDoc?.actor ?? null;
+  const records = [];
+  const worth = gold => kinds.reduce((sum, k) => sum + (Number(gold?.[k.key]) || 0) * k.value, 0);
+  if ( concession.kind === "money" ) {
+    if ( giver.system.gold ) {
+      const before = { ...giver.system.gold };
+      const after = goldFor(Math.max(0, worth(before) - concession.amount), kinds);
+      const undo = emptyRecord(giverDoc, giver);
+      undo.actorUpdate["system.gold"] = before;
+      await giver.update({ "system.gold": { ...before, ...after } });
+      records.push(undo);
+    }
+    if ( receiver?.system.gold ) {
+      const before = { ...receiver.system.gold };
+      const after = goldFor(worth(before) + concession.amount, kinds);
+      const undo = emptyRecord(receiverDoc, receiver);
+      undo.actorUpdate["system.gold"] = before;
+      await receiver.update({ "system.gold": { ...before, ...after } });
+      records.push(undo);
+    }
+    return records;
+  }
+  const item = giver.items.get(concession.item?.id);
+  if ( !item ) return [];
+  const undo = emptyRecord(giverDoc, giver);
+  const data = item.toObject();
+  delete data._id;
+  data.system.quantity = 1;
+  data.system.equipped = false;
+  if ( (Number(item.system.quantity) || 1) > 1 ) {
+    undo.itemUpdates.push({ id: item.id, update: { "system.quantity": item.system.quantity } });
+    await item.update({ "system.quantity": item.system.quantity - 1 });
+  } else {
+    undo.deletedItems.push(item.toObject());
+    await item.delete();
+  }
+  records.push(undo);
+  if ( receiver?.type === "character" ) {
+    const got = emptyRecord(receiverDoc, receiver);
+    const [created] = await receiver.createEmbeddedDocuments("Item", [data]);
+    if ( created ) got.createdItems.push(created.id);
+    records.push(got);
+  }
+  return records;
 }
 
 /** The GM's Fear going in, and as the fight left it: {before, after}. */

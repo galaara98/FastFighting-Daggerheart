@@ -26,7 +26,9 @@
       "RiskLives": "Risk It All: Hope {hope}, Fear {fear}, back up with {n} Hit Points",
       "RiskAll": "Risk It All: Hope {hope}, Fear {fear}, matching: every Hit Point and Stress cleared",
       "Avoid": "Avoid Death: out cold (Hope die {n})",
-      "AvoidScar": "Avoid Death: out cold, and a scar (Hope die {n})"
+      "AvoidScar": "Avoid Death: out cold, and a scar (Hope die {n})",
+      "Finished": "struck while out cold: Hope {hope}, Fear {fear}, and death",
+      "HangsOn": "struck while out cold: Hope {hope}, Fear {fear}, and it hangs on"
     },
     "Reason": {
       "Beast": "{kind}, a beast",
@@ -92,11 +94,43 @@
       "TalkedAway": "Talked away",
       "Fled": "Fled",
       "Surrenders": "Surrenders",
-      "StandsDown": "Stands down"
+      "StandsDown": "Stands down",
+      "Used": "Used: {name} ×{n}",
+      "Killed": "Killed"
     },
     "Encounter": {
       "Title": "The GM's Fear",
       "Fear": "Fear: {from} → {to}"
+    },
+    "Settings": {
+      "loreBoost": {
+        "Name": "Lore-Collector advantage",
+        "Hint": "How much likelier a Lore-Collector's next roll against a foe is to succeed after it sizes that foe up (Analyze with Knowledge, or Perceive with Instinct, against the foe's Difficulty; on a success, never without it). 1.25× is a nudge, 3× a sure thing more often than not. Default 2.4×: what it takes for that one roll to make up for the action it cost."
+      }
+    },
+    "HelpAnAlly": "Help an Ally",
+    "Verb": {
+      "grapple": "Grapple",
+      "maneuver": "Maneuver",
+      "hide": "Hide",
+      "analyze": "Analyze",
+      "perceive": "Perceive"
+    },
+    "Condition": {
+      "restrained": "Restrained",
+      "vulnerable": "Vulnerable",
+      "hidden": "Hidden"
+    },
+    "Gold": {
+      "coins": "Coins",
+      "handfuls": "Handfuls",
+      "bags": "Bags",
+      "chests": "Chests"
+    },
+    "Sprint": {
+      "Made": "sprints (Agility, {note}): up to Far range",
+      "Missed": "tries to sprint (Agility, {note}) and gets no farther than Close range",
+      "Adversary": "closes in, up to Very Far range"
     }
   }
 }

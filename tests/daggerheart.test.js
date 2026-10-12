@@ -145,10 +145,10 @@ describe("death moves", () => {
     expect(deathMoveOf(dying([]))).toBe("avoid");
   });
 
-  test("Avoid Death: out cold, a scar when the Hope die is at or under its level", () => {
+  test("Avoid Death: out cold (open to a finishing blow), a scar when the Hope die is at or under its level", () => {
     const u = dying(["fragile"]);
     daggerheartRules.onDropped(u, { rng: fixed(1) });
-    expect(u).toMatchObject({ status: STATUS.DOWN, stable: true, scarred: true });
+    expect(u).toMatchObject({ status: STATUS.DOWN, stable: false, scarred: true });
     const v = dying(["fragile"]);
     daggerheartRules.onDropped(v, { rng: fixed(7) });
     expect(v.scarred).toBe(false);

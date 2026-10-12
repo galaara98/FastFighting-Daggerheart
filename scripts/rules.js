@@ -24,7 +24,7 @@
  * Stress), or Blaze of Glory (one last action, a critical, and then it dies). Adversaries are defeated (dead).
  * Pure: no Foundry globals (words through t()).
  */
-import { STATUS, DOWNED_MODELS, clamp } from "./core.js";
+import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance } from "./core.js";
 import { DUALITY, dualityChances, d20Chances, rollDuality, rollD20 } from "./dice.js";
 import { t, systemWord } from "./words.js";
 
@@ -38,8 +38,15 @@ export const FEAR_SPENDING = Object.freeze({
 });
 /** How likely an Experience fits the moment (the table's call). */
 const FITS = 0.6;
-/** Worth a Hope: an Experience that makes the roll at least this much likelier to succeed. */
-const WORTH = 0.12;
+/**
+ * Worth a Hope, by how freely its tactics spend resources: an Experience that makes the roll at least this much likelier
+ * to succeed; and whether it keeps Hope back for its class's Hope feature.
+ */
+const HOPE_SPENDING = Object.freeze({
+  conserve: { worth: 0.2, keep: true },
+  balanced: { worth: 0.12, keep: true },
+  nova: { worth: 0.06, keep: false }
+});
 
 const isPc = u => !!u?.spec?.duality;
 const success = d => d[2] + d[3];
@@ -68,10 +75,11 @@ function experienceFor(rng, u, mod, dc, options, reaction) {
   const hope = u.resources?.hope ?? 0;
   const best = u.spec.experiences?.[0];
   if ( !(hope > 0) || !(best?.value > 0) || !Number.isFinite(dc) ) return null;
+  const how = HOPE_SPENDING[u.tac?.resourceUse] ?? HOPE_SPENDING.balanced;
   const before = success(dualityChances(mod, dc, { advantage: options.advantage, reaction }));
   const after = success(dualityChances(mod + best.value, dc, { advantage: options.advantage, reaction }));
-  if ( after - before < WORTH ) return null;
-  if ( hope <= (u.spec.hopeReserve ?? 0) && before >= 0.35 ) return null;
+  if ( after - before < how.worth ) return null;
+  if ( how.keep && hope <= (u.spec.hopeReserve ?? 0) && before >= 0.35 ) return null;
   if ( !rng.chance(FITS) ) return null;
   u.resources.hope -= 1;
   return { name: best.name, value: best.value };
@@ -104,11 +112,29 @@ export function marksFor(damage, thresholds = {}, { massive = false } = {}) {
   return 1;
 }
 
-/** Whether a player character marks an Armor Slot against a hit of so many Hit Points: always for Major or worse; for a Minor one, while it has more than half its slots. */
+/**
+ * Whether a player character marks an Armor Slot against a hit of so many Hit Points. Its shield tactic says how freely
+ * it uses its defenses: "always", against any hit; "spare", against Major or worse; "never", only against Severe. Let
+ * them decide: against Major or worse, and against a Minor hit while it has more than half its slots.
+ */
 function marksArmor(u, marks) {
   const left = u.resources?.armor ?? 0;
   if ( !(left > 0) || !(marks > 0) ) return false;
-  return marks >= 2 || left > (u.spec.armorMax ?? 0) / 2;
+  switch ( u.tac?.shield ) {
+    case "always": return true;
+    case "spare": return marks >= 2;
+    case "never": return marks >= 3;
+    default: return marks >= 2 || left > (u.spec.armorMax ?? 0) / 2;
+  }
+}
+
+/** Clear Hit Points; one out cold gets up. */
+function heal(c, amount) {
+  c.hp = Math.min(c.maxHp, Math.max(0, c.hp) + amount);
+  if ( c.status === STATUS.DOWN && c.hp > 0 ) {
+    c.status = STATUS.STANDING;
+    c.stable = false;
+  }
 }
 
 /** How a player character meets its end, as its playstyles lean (the first that leans), else its nerve. */
@@ -174,9 +200,37 @@ export const daggerheartRules = {
   /* Turn ------------------------------------------------------------------ */
   mainPool: "action",
   movement: "feet",
-  /** A spotlight: one action, and a move within Close range as part of it. */
+  /** A spotlight: one action, and a move within Close range as part of it; or, sprinting, a move that is the action. */
   turn(u) {
+    // (Sprinting: up to Far, the roll made; within Close, missed.)
+    if ( u.sprinting ) return { action: 0, move: u.sprinting === "missed" ? u.spec.speeds?.walk ?? 30 : u.spec.sprint?.range ?? 60 };
     return { action: 1, move: u.spec.speeds?.walk ?? 30 };
+  },
+  /**
+   * One in a hurry (its playstyles' rush: Impatient, Speed-Runner), with no foe within Close range, sprints for it: a
+   * player character with an Agility action roll against Difficulty 12 (made, it moves up to Far; either way the
+   * spotlight's action is spent on it, and the roll brings Hope or Fear); an adversary simply moves up to Very Far, as
+   * its action.
+   */
+  startTurn(run, u) {
+    u.sprinting = false;
+    const rush = (u.turnBehavior ?? u.ownBehavior ?? u.spec.behavior ?? {}).rush ?? 0;
+    if ( !(rush > 0) || !run.prep.options.positioning || !u.spec.sprint || u.status !== STATUS.STANDING ) return null;
+    const enemies = run.prep.sides[u.side]?.enemies ?? new Set();
+    let nearest = null;
+    for ( const o of run.units ) {
+      if ( o === u || o.status !== STATUS.STANDING || !o.active || o.spec.untargetable || !enemies.has(o.side) ) continue;
+      const d = edgeDistance(u, o);
+      if ( d !== null && (nearest === null || d < nearest) ) nearest = d;
+    }
+    if ( nearest === null || nearest <= (u.spec.speeds?.walk ?? 30) || !run.rng.chance(rush) ) return null;
+    if ( !isPc(u) ) {
+      u.sprinting = "made";
+      return { text: t("Sprint.Adversary") };
+    }
+    const roll = daggerheartRules.roll(run.rng, Number(u.spec.sprint.mod) || 0, 12, { roller: u, faces: DUALITY, kind: "check" });
+    u.sprinting = roll.degree >= 2 ? "made" : "missed";
+    return { text: t(u.sprinting === "made" ? "Sprint.Made" : "Sprint.Missed", { note: roll.note }) };
   },
   costOf(action) {
     return action.economy === "free" ? {} : { action: 1 };
@@ -341,11 +395,15 @@ export const daggerheartRules = {
   },
 
   /* Falling ---------------------------------------------------------------- */
-  /** Adversaries are defeated; a player character makes its death move. */
+  /**
+   * Adversaries are defeated (beaten: the table decides what that means; one who would kill, kills); a player character
+   * makes its death move. Struck while out cold from Avoid Death (a Cruel foe finishing it: homebrew, the SRD doesn't
+   * say), it rolls the Duality Dice: Fear higher, it dies; otherwise it hangs on, still out cold.
+   */
   onDropped(c, { model = DOWNED_MODELS.SIMULATE, rng = null } = {}) {
     c.hp = Math.min(0, c.hp);
     if ( !isPc(c) ) {
-      c.status = STATUS.DEAD;
+      c.status = STATUS.BEATEN;
       // Minion (X): each X damage, another of its kind falls with it.
       const more = c.minionOverflow ?? 0;
       c.minionOverflow = 0;
@@ -353,7 +411,7 @@ export const daggerheartRules = {
         const fallen = c.kin.filter(o => o !== c && o.status === STATUS.STANDING && o.active).slice(0, more);
         for ( const o of fallen ) {
           o.hp = 0;
-          o.status = STATUS.DEAD;
+          o.status = STATUS.BEATEN;
         }
         if ( fallen.length ) c.fallNote = t("Minion.More", { names: fallen.map(o => o.spec.name).join(", "), n: fallen.length });
       }
@@ -362,6 +420,14 @@ export const daggerheartRules = {
     // (Already on its last stand: it fights on until its last action is done.)
     if ( c.lastStand ) {
       c.hp = 0;
+      return c.status;
+    }
+    if ( c.status === STATUS.DOWN ) {
+      if ( !rng ) return c.status;
+      const hope = rng.die(12);
+      const fear = rng.die(12);
+      if ( fear > hope ) c.status = STATUS.DEAD;
+      c.fallNote = t(fear > hope ? "DeathMove.Finished" : "DeathMove.HangsOn", { hope, fear });
       return c.status;
     }
     if ( model === DOWNED_MODELS.DEAD ) {
@@ -396,24 +462,43 @@ export const daggerheartRules = {
       c.dhNote = t(hope === fear ? "DeathMove.RiskAll" : "DeathMove.RiskLives", { hope, fear, n: c.hp });
       return c.status;
     }
-    // Avoid Death: out cold; its Hope die at or under its level, a scar.
+    // Avoid Death: out cold (open to a finishing blow until a friend tends it); its Hope die at or under its level, a scar.
     c.status = STATUS.DOWN;
-    c.stable = true;
+    c.stable = false;
     const die = rng.die(12);
     c.scarred = die <= (c.spec.level ?? 1);
     c.fallNote = t(c.scarred ? "DeathMove.AvoidScar" : "DeathMove.Avoid", { n: die });
     return c.status;
   },
   onHealed(c, amount) {
-    c.hp = Math.min(c.maxHp, Math.max(0, c.hp) + amount);
-    if ( c.status === STATUS.DOWN && c.hp > 0 ) {
-      c.status = STATUS.STANDING;
-      c.stable = false;
-    }
+    heal(c, amount);
   },
+  /** Out cold, a character lies as it is until someone tends it or clears its Hit Points: no rolls of its own. */
   recoveryCheck() {
     return null;
   },
+  /**
+   * Tending a friend out cold (homebrew: the SRD leaves it to the table): an Instinct or Knowledge action roll against
+   * Difficulty 12. A success keeps it safe from a finishing blow; a critical clears a Hit Point, and it gets up.
+   */
+  firstAidDC() {
+    return 12;
+  },
+  firstAid(target, degree) {
+    if ( degree >= 2 ) target.stable = true;
+    if ( degree === 3 ) heal(target, 1);
+  },
+  /** Sizing a foe up (a Lore-Collector's Analyze or Perceive): against its Difficulty. */
+  sizeUpDC(target) {
+    return target.spec.defenses?.ac ?? 12;
+  },
+  /** Hidden ends when it attacks. */
+  afterRoll(run, u, roll, ctx) {
+    if ( ctx?.kind === "attack" && u.conds?.hidden ) dropCondition(u, "hidden");
+  },
+  /** A wooden door: Smash it (Strength) or Tinker with its lock (Finesse), Difficulty 12, or break it down (12 damage). */
+  door: { ac: 10, hp: 12, threshold: 0, forceDC: 12, pickDC: 12 },
+  doorCosts: { open: {}, force: { action: 1 }, pick: { action: 1 } },
   /** A death move that kept it on its feet (Risk It All, Blaze of Glory), said once the hit is done. */
   afterHarm(run, u) {
     if ( !u.dhNote ) return null;
@@ -465,12 +550,13 @@ export const daggerheartRules = {
   },
   /** What a condition takes from a creature's fighting each round. */
   conditionWeight(key) {
-    if ( key === "vulnerable" ) return 0.15;
     if ( key === "restrained" ) return 0.2;
-    if ( key === "hidden" ) return 0;
+    if ( key === "immobilized" ) return 0;
     return null;
   },
-  conditionMods() {
+  conditionMods(key) {
+    if ( key === "vulnerable" ) return { defAdv: 1 };
+    if ( key === "hidden" ) return { defAdv: -1 };
     return null;
   },
   resistShare() {
@@ -486,6 +572,8 @@ export const daggerheartRules = {
       armorMarked: u.armorMarked ?? 0,
       deathMove: u.deathMove ?? null,
       scarred: !!u.scarred,
+      // (Consumables, as many as are left: "item:<id>".)
+      items: Object.fromEntries(Object.entries(u.resources ?? {}).filter(([k]) => k.startsWith("item:"))),
       fear: u.sharedPools?.fear ?? null
     };
   },

@@ -35,8 +35,44 @@ https://github.com/galaara98/FastFighting-Daggerheart/releases/latest/download/m
   - **Avoid Death:** out cold; if the Hope die comes up at or under its level, a scar.
   - **Risk It All:** the Duality Dice. Hope higher: it clears that many Hit Points and fights on. Fear higher: it dies. Matching: every Hit Point and Stress cleared.
   - **Blaze of Glory:** one last action, a critical success, and then it dies.
-  - Adversaries whose last Hit Point is marked are defeated (dead).
+  - Adversaries whose last Hit Point is marked are defeated; one who would kill kills them.
 - **Talking:** Presence for persuading, threatening and deceiving; an adversary talks with its best Experience (a Social adversary better), and resists with its Difficulty. Beasts don't talk.
+
+## Playstyles in Daggerheart
+
+Every perk a playstyle (or a tactics answer) can switch on does something here. Most play as they do in any system (who a character goes for, when it loses heart, whom it listens to, how it talks). These are Daggerheart's own:
+
+| Perk (playstyles) | In Daggerheart |
+| --- | --- |
+| Hard to spot (Chicken, Fragile, Wallflower) | Foes' attention slides off it, and it can **Hide** (Finesse against Difficulty 12): Hidden, rolls against it at disadvantage, until it attacks. |
+| Spoiling (Instigator most; Cruel, Wants to Lead, Wallflower, Puzzle-Maniac) | It would rather **Grapple** (Strength against the foe's Difficulty: Restrained) or **Maneuver** (Agility: Vulnerable until the foe next acts), or use a feature that lays a condition, than strike. |
+| Helping (Enabler, People-Pleaser, Moralist, Martyr, Redeem-Seeker, Tank) | **Help an Ally**: a Hope for a d6 on a friend's next action roll, without taking the spotlight; friends asking for help are answered. |
+| In a hurry (Impatient, Speed-Runner) | **Sprint** for a foe beyond Close range: an Agility roll against Difficulty 12 that takes the spotlight's action (made, up to Far); an adversary moves up to Very Far as its action. |
+| Acting first (Instigator) | No initiative here: it takes the spotlight first among the party, and the GM turns to it first among its side. |
+| Lore-Collector | Sizes a foe up with **Analyze** (Knowledge) or **Perceive** (Instinct), whichever is better, against the foe's Difficulty; on a success its next roll against that foe is likelier (the **Lore-Collector advantage** setting, 2.4× by default). |
+| Weak spots (Puzzle-Maniac) | A foe that resists, or is immune to, one kind of damage (physical, magical) and not the other: it goes for the other. |
+| Healers and casters as targets | Anyone with a spellcast attack counts as a caster; anyone with healing (a domain card, a potion) as a healer. |
+| Thief | Lifts gold or gear (Finesse against 12 + the victim's Instinct). A character's gold is its sheet's (coins, handfuls, bags, chests); its stowed gear, what it carries and hasn't equipped. |
+| Trap avoiders (Thief, Puzzle-Maniac, Skeptic, Lore-Collector, Chicken, Wallflower) | **Environments** (a raging river, a collapsing bridge) are hazards: their action features act on GM turns, reaction rolls against their Difficulty; a trap avoider may spot one and keep clear of it. |
+| Finishing the fallen (Cruel) | An adversary whose last Hit Point is marked is **defeated**: the table decides what that means, and Make it So marks it Defeated; one who would kill (Cruel, or a foe) kills it, and it's marked Dead. A character out cold from Avoid Death can be struck (homebrew, below). |
+| Sparing the fallen (Moralist, Peacekeeper, Diplomat; "avoid killing") | Leaves the defeated as they are. |
+| Mending, healing (Fragile, Moralist, Martyr, Enabler) | Healing domain cards, and potions (a character's consumables: drunk by whoever carries them, at its potion threshold). |
+| Locked doors (Puzzle-Maniac most) | **Smash** (Strength) or **Tinker** (Finesse) against Difficulty 12, or break it down. |
+| Death moves | See **How a fight plays**: Martyr and Redeem-Seeker go out in a Blaze of Glory; the bold Risk It All; the careful Avoid Death. |
+
+Tactics answers:
+
+- **Shields** (raise a shield always, sparingly, never): how freely it marks **Armor Slots**: against any hit; against Major or worse; only against Severe. Let them decide: Major or worse, and a Minor hit while it has more than half its slots.
+- **Resources** (conserve, balanced, nova): how readily it spends a Hope on an Experience (only for a big difference; for a fair one, keeping three for its Hope feature; for any), as well as on its Hope, Stress and Armor Slot features.
+- **Potions:** a potion drunk once its Hit Points fall below the threshold.
+- **A friend falling** (rescue): it tends a friend out cold, or heals it.
+- **Retreat** ("never"): also means Risk It All when its last Hit Point is marked.
+
+**Homebrew** (the SRD doesn't say; this module's reading, kept to the system's own mechanics where it could):
+- Striking a character out cold from Avoid Death: it rolls the Duality Dice; Fear higher, it dies; otherwise it hangs on, still out cold.
+- Tending a friend out cold: an Instinct or Knowledge action roll against Difficulty 12 keeps it safe from a finishing blow; a critical clears a Hit Point and gets it up.
+- Which trait each move uses, what Grapple and Maneuver lay on a foe, and Difficulty 12 for Hide, Sprint, doors and tending.
+- An adversary's gold: the SRD doesn't count it, so a humanoid adversary is reckoned to carry a handful a tier (a Leader's or a Solo's twice that), a beast or a Minion none: something to steal, or to pay with in a standoff.
 
 ## The planner's Daggerheart row
 
@@ -49,14 +85,15 @@ https://github.com/galaara98/FastFighting-Daggerheart/releases/latest/download/m
 ## Make it So
 
 - A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), a scar, and how it ended (unconscious from Avoid Death, dead).
-- An adversary: Hit Points and Stress marked; defeated (dead, and its combatant defeated), or hidden when it fled.
+- An adversary: Hit Points and Stress marked; Defeated (or Dead, when one who would kill beat it), its combatant defeated; hidden when it fled.
+- Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
 - The GM's Fear, written to the world.
 
 Undo puts it all back.
 
 ## Not yet played
 
-Help an Ally, Tag Team rolls, adversary reactions and passives, a Minion's Group Attack, an adversary's Experiences (a Fear each), countdowns, summons, beastforms, and money (gold isn't offered or demanded in a standoff yet).
+Tag Team rolls, adversary reactions and passives, a Minion's Group Attack, an adversary's Experiences (a Fear each), countdowns, summons and beastforms.
 
 ## Development
 
