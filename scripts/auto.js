@@ -1,7 +1,7 @@
 /**
  * What Daggerheart says about a character, for the one time FastFighting sets it up by itself (the core's
- * foundry/auto-config.js): the playstyles that fit it, its own answers to the tactics questions, and its biography as
- * plain text for the playstyles' keywords. Read from data, never names: a character's class by its two domains (so a
+ * foundry/auto-config.js): the playstyles that fit it, its own answers to the tactics questions, and its biography (what's
+ * said of it, its story) for the keywords. Read from data, never names: a character's class by its two domains (so a
  * homebrew class counts as its domains say), an adversary by its type, a beast by its motives. Pure.
  */
 
@@ -83,15 +83,19 @@ export function plainText(html) {
     .replace(/\s+/g, " ").trim();
 }
 
-/** Everything written about it, as one text: its biography and description, its motives, its Experiences' names. */
-export function biographyText({ bio = null, description = "", motives = "", experiences = {} } = {}) {
-  const parts = [];
-  const walk = v => {
-    if ( typeof v === "string" ) parts.push(plainText(v));
-    else if ( v && typeof v === "object" ) for ( const x of Object.values(v) ) walk(x);
-  };
-  walk(bio);
-  parts.push(plainText(description), String(motives ?? ""));
-  for ( const e of Object.values(experiences ?? {}) ) parts.push(String(e?.name ?? ""), plainText(e?.description));
-  return parts.filter(Boolean).join(". ");
+/**
+ * Its biography as the core reads it (adapter-base biography()): what's said of it, its story, what it's against.
+ *  - A character: its faith and its Experiences (what it's made of, in its own words) are about it; its background (its
+ *    answers to its class's questions, the questions left out) is its story. Its connections are about the others in
+ *    its party, so they're left out. Nothing it's against: the sheet keeps no dislikes.
+ *  - An adversary or an environment: its description, its motives and tactics (an environment's impulses) and its
+ *    Experiences are about it; the GM's notes are its story.
+ * @returns {{about: string, story: string, against: string}}
+ */
+export function biographyOf({ pc = false, bio = null, description = "", motives = "", notes = "", experiences = {} } = {}) {
+  // (One text, each part its own sentence, so a negation in one doesn't reach into the next.)
+  const join = parts => parts.map(s => String(s ?? "").trim()).filter(Boolean).reduce((all, s) => (!all ? s : /[.!?…]$/u.test(all) ? `${all} ${s}` : `${all}. ${s}`), "");
+  const known = Object.values(experiences ?? {}).flatMap(e => [e?.name, plainText(e?.description)]);
+  if ( pc ) return { about: join([bio?.characteristics?.faith, ...known]), story: plainText(bio?.background), against: "" };
+  return { about: join([plainText(description), motives, ...known]), story: plainText(notes), against: "" };
 }

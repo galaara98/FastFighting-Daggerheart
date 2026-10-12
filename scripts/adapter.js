@@ -14,13 +14,16 @@
  * For the playstyles: a character's gold and stowed gear (to steal, or bargain with), its consumables (a potion to
  * drink), the trait moves anyone can make (Grapple, Maneuver, Hide), Help an Ally, sizing a foe up (Analyze or Perceive),
  * tending a friend out cold, doors (Smash, Tinker), and the damage type a foe resists less (its weak spot).
+ * Who it is (traits.js): a character from its whole sheet (traits against its class's guide, level, domains and cards,
+ * subclass, ancestry, community, what its features do, scars, Stress slots, party); an adversary from its type, tier,
+ * motives, features and the damage it resists.
  */
 import { SystemAdapter, hasWords } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
 import { toActionSpec, traitMoves, helpAnAlly, RANGES } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast } from "./traits.js";
-import { daggerheartHints, daggerheartTactics, biographyText } from "./auto.js";
+import { daggerheartHints, daggerheartTactics, biographyOf } from "./auto.js";
 import { commitDaggerheartOutcome, describeDaggerheartOutcome, describeFear, commitFear, commitDaggerheartConcession } from "./commit.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
@@ -135,6 +138,21 @@ function startingConditions(actor) {
   return out;
 }
 
+/** A domain's name, the system's (DAGGERHEART.GENERAL.Domain.valor.label), else this module's. */
+const domainName = k => systemWord(`DAGGERHEART.GENERAL.Domain.${k}.label`, `Domain.${k}`);
+
+/** The compendium entry an item was made from ("Compendium.daggerheart.subclasses.Item.<id>"), if it says. */
+const sourceOf = item => item?._stats?.compendiumSource ?? item?.flags?.core?.sourceId ?? null;
+
+/** A collection's values, a list's items, or an object's values (actions as the database keeps them, by id). */
+const valuesOf = v => (v == null ? [] : typeof v[Symbol.iterator] === "function" ? [...v] : Object.values(v));
+
+/** What a feature or domain card does, as plain data for traits.js featureLeans: its form, its actions, its effects' changes. */
+function doingOf(item) {
+  const changes = valuesOf(item.effects).flatMap(e => valuesOf(e?.system?.changes ?? e?.changes).map(c => c?.key).filter(Boolean));
+  return { name: item.name, form: item.system?.featureForm ?? null, actions: valuesOf(item.system?.actions).map(plain), changes };
+}
+
 /** "Minion (3)", "Relentless (2)": the number a feature's name carries. */
 const countIn = name => Number(/\((\d+)\)\s*$/.exec(String(name ?? ""))?.[1]) || 0;
 
@@ -213,10 +231,9 @@ export class DaggerheartAdapter extends SystemAdapter {
     } }));
     actions.push(helpAnAlly({ id, label: t("HelpAnAlly"), given: t("Helped"), ranges: r }));
     const experiences = Object.values(sys.experiences ?? {}).map(e => ({ name: e.name, value: num(e.value) })).filter(e => e.value > 0).sort((a, b) => b.value - a.value);
-    const names = Object.fromEntries(TRAITS.map(k => [k, traitName(k)]));
     const kinds = currency();
     const wits = traits.knowledge >= traits.instinct ? "knowledge" : "instinct";
-    const derived = deriveDaggerheartTraits({ pc: true, traits, names });
+    const derived = this.deriveTraits(actor);
     return {
       id, tokenId: id, actorId: actor.id, actorUuid: actor.uuid,
       name: tokenDoc.name ?? actor.name,
@@ -304,7 +321,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       }
     }
     const beast = isBeast(sys.motivesAndTactics);
-    const derived = deriveDaggerheartTraits({ pc: false, type, tier, motives: sys.motivesAndTactics, names: { type: typeName(type) } });
+    const derived = this.deriveTraits(actor);
     const best = Math.max(0, ...Object.values(sys.experiences ?? {}).map(e => num(e.value)));
     const thresholds = sys.damageThresholds ?? {};
     return {
@@ -411,19 +428,83 @@ export class DaggerheartAdapter extends SystemAdapter {
     return daggerheartTactics(this.#facts(actor));
   }
 
-  /** Its biography (what was written, not the class's questions), description, motives and Experiences, as text. */
+  /**
+   * Its biography (auto.js biographyOf): a character's faith and Experiences are about it, its background (what was
+   * written, not the class's questions) its story, its connections (about the others) left out; an adversary's
+   * description, motives and Experiences are about it, the GM's notes its story; an environment's, its description and
+   * impulses.
+   */
   biography(actor) {
     const sys = actor?.system ?? {};
-    return biographyText({ bio: sys.biography, description: sys.description, motives: sys.motivesAndTactics, experiences: sys.experiences });
+    if ( actor?.type === "character" ) return biographyOf({ pc: true, bio: sys.biography, experiences: sys.experiences });
+    return biographyOf({ description: sys.description, motives: sys.motivesAndTactics ?? sys.impulses, notes: sys.notes, experiences: sys.experiences });
   }
 
+  /** Its personality (traits.js): a character from its whole sheet, an adversary from its type, tier and features. */
   deriveTraits(actor) {
+    return deriveDaggerheartTraits(actor.type === "character" ? this.#pcSheet(actor) : this.#adversarySheet(actor));
+  }
+
+  /**
+   * What a character's sheet says of who it is, as plain data (traits.js deriveDaggerheartTraits): its traits and its
+   * class's suggested ones, level, Stress slots, scars, party; its class's domains and its domain cards; its subclass,
+   * ancestry and community, with the ids they're known by; its features and loadout cards, with what they do.
+   */
+  #pcSheet(actor) {
     const sys = actor.system;
-    if ( actor.type === "character" ) {
-      const traits = Object.fromEntries(TRAITS.map(k => [k, num(sys.traits?.[k]?.value)]));
-      return deriveDaggerheartTraits({ pc: true, traits, names: Object.fromEntries(TRAITS.map(k => [k, traitName(k)])) });
-    }
-    return deriveDaggerheartTraits({ pc: false, type: sys.type, tier: sys.tier, motives: sys.motivesAndTactics, names: { type: typeName(sys.type) } });
+    const items = [...(actor.items ?? [])];
+    const own = (type, multi = false) => items.find(i => i.type === type && !!i.system?.isMulticlass === multi);
+    const cls = own("class");
+    const multiclass = own("class", true);
+    const cards = items.filter(i => i.type === "domainCard");
+    // (Its features as the system has them on: a subclass's specialization and mastery only once it's reached them.)
+    const available = i => sys.isItemAvailable?.(i) !== false;
+    const doing = items.filter(i => (i.type === "feature" && available(i)) || (i.type === "domainCard" && !i.system?.inVault));
+    const subclass = s => (s ? { source: sourceOf(s), name: s.name, state: num(s.system?.featureState) || 1 } : null);
+    const lore = i => (i ? { ref: i.system?.loreReference ?? null, name: i.name } : null);
+    const domains = [...new Set([...(cls?.system?.domains ?? []), ...(multiclass?.system?.domains ?? []), ...cards.map(c => c.system?.domain)].filter(Boolean))];
+    // (Out of the party only where the world has one.)
+    const parties = globalThis.game?.actors?.filter?.(a => a.type === "party") ?? [];
+    return {
+      pc: true,
+      traits: Object.fromEntries(TRAITS.map(k => [k, num(sys.traits?.[k]?.value)])),
+      usual: plain(cls?.system?.characterGuide?.suggestedTraits) ?? null,
+      level: num(sys.levelData?.level?.current) || 1,
+      stressMax: num(sys.resources?.stress?.max),
+      scars: num(sys.scars),
+      inParty: parties.length ? (actor.parties instanceof Set ? actor.parties.size > 0 : undefined) : undefined,
+      domains: [...(cls?.system?.domains ?? [])],
+      multiclassDomains: [...(multiclass?.system?.domains ?? [])],
+      cards: cards.map(c => ({ domain: c.system?.domain })),
+      subclass: subclass(own("subclass")),
+      multiclassSubclass: subclass(own("subclass", true)),
+      ancestry: lore(items.find(i => i.type === "ancestry")),
+      community: lore(items.find(i => i.type === "community")),
+      items: doing.map(doingOf),
+      names: {
+        traits: Object.fromEntries(TRAITS.map(k => [k, traitName(k)])),
+        cls: cls?.name,
+        level: systemWord("DAGGERHEART.GENERAL.level", "Level"),
+        stress: resourceWord("stress"),
+        scars: systemWord("DAGGERHEART.GENERAL.scars", "Scars"),
+        domains: Object.fromEntries(domains.map(k => [k, domainName(k)]))
+      }
+    };
+  }
+
+  /** What an adversary's sheet says (traits.js): its type, tier and motives, its features with what they do, what harms it less. */
+  #adversarySheet(actor) {
+    const sys = actor.system;
+    const harm = k => systemWord(`DAGGERHEART.GENERAL.DamageResistance.${k}.label`, `Harm.${k}`);
+    return {
+      pc: false,
+      type: sys.type,
+      tier: sys.tier,
+      motives: sys.motivesAndTactics,
+      items: [...(actor.items ?? [])].filter(i => i.type === "feature" && !i.system?.inactive).map(doingOf),
+      resistance: plain(sys.resistance) ?? {},
+      names: { type: typeName(sys.type), harm: Object.fromEntries(["physicalImmunity", "physicalResistance", "magicalImmunity", "magicalResistance"].map(k => [k, harm(k)])) }
+    };
   }
 
   detectLeaders(specs) {

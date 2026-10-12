@@ -1,9 +1,9 @@
 /**
  * Setting a character up by itself, as Daggerheart reads it: a class by its domains, an adversary by its type, a beast
- * by its motives; its biography as text, the class's questions left out.
+ * by its motives; its biography (about it, its story), the class's questions and its connections left out.
  */
 import { describe, expect, test } from "vitest";
-import { daggerheartHints, daggerheartTactics, biographyText, plainText } from "../scripts/auto.js";
+import { daggerheartHints, daggerheartTactics, biographyOf, plainText } from "../scripts/auto.js";
 
 describe("the playstyles Daggerheart says fit", () => {
   test("a class by its domains (they add up): valor a Tank, midnight a Thief, arcana Un-Mundane", () => {
@@ -34,13 +34,24 @@ describe("Daggerheart's answers to the tactics questions", () => {
   });
 });
 
-describe("its biography as text", () => {
-  test("what was written, not the class's questions (in bold); motives, description and Experiences too", () => {
+describe("its biography: what's said of it, its story", () => {
+  test("a character: its faith and Experiences are about it; its background (not the class's questions) its story; its connections left out", () => {
     expect(plainText("<p><strong>Who taught you to fight?</strong></p><p>My greedy uncle.</p>")).toBe("My greedy uncle.");
-    const text = biographyText({ bio: { background: "<p><strong>Why?</strong> A sellsword.</p>", characteristics: {} }, motives: "Escape, steal", experiences: { a: { name: "Thief", description: "" } } });
-    expect(text).toContain("A sellsword.");
-    expect(text).toContain("Escape, steal");
-    expect(text).toContain("Thief");
-    expect(text).not.toContain("Why?");
+    const bio = { background: "<p><strong>Why?</strong> A sellsword.</p>", connections: "<p><strong>Who?</strong> Mira, a coward.</p>", characteristics: { faith: "The Sun" } };
+    const { about, story, against } = biographyOf({ pc: true, bio, experiences: { a: { name: "Thief", description: "" } } });
+    expect(about).toContain("Thief");
+    expect(about).toContain("The Sun");
+    expect(story).toBe("A sellsword.");
+    expect(against).toBe("");
+    expect([about, story].join(" ")).not.toContain("coward");
+    expect(story).not.toContain("Why?");
+  });
+
+  test("an adversary: its description, motives and Experiences are about it; the GM's notes its story", () => {
+    const { about, story } = biographyOf({ description: "<p>A greedy bandit.</p>", motives: "Escape, steal", notes: "<p>Robbed the mill.</p>", experiences: { a: { name: "Thief", value: 2 } } });
+    expect(about).toContain("A greedy bandit.");
+    expect(about).toContain("Escape, steal");
+    expect(about).toContain("Thief");
+    expect(story).toBe("Robbed the mill.");
   });
 });

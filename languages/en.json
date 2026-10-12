@@ -32,7 +32,11 @@
     },
     "Reason": {
       "Beast": "{kind}, a beast",
-      "Tier": "{kind}, tier {tier}"
+      "Tier": "{kind}, tier {tier}",
+      "Pc": "Player character",
+      "Ability": "{name} {n}",
+      "TraitFor": "{name} {n} ({cls}: {usual})",
+      "NoParty": "not in the party"
     },
     "Lead": {
       "Presence": "Presence {n}",
@@ -57,6 +61,26 @@
       "solo": "Solo",
       "standard": "Standard",
       "support": "Support"
+    },
+    "Domain": {
+      "arcana": "Arcana",
+      "blade": "Blade",
+      "bone": "Bone",
+      "codex": "Codex",
+      "dread": "Dread",
+      "grace": "Grace",
+      "midnight": "Midnight",
+      "sage": "Sage",
+      "splendor": "Splendor",
+      "valor": "Valor"
+    },
+    "Level": "Level",
+    "Scars": "Scars",
+    "Harm": {
+      "physicalImmunity": "Immune to physical damage",
+      "magicalImmunity": "Immune to magic damage",
+      "physicalResistance": "Resists physical damage",
+      "magicalResistance": "Resists magic damage"
     },
     "Unarmed": "Unarmed",
     "Difficulty": "Difficulty",

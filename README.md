@@ -8,7 +8,7 @@ Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFig
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
-- **Needs:** FastFighting Core (API 12)
+- **Needs:** FastFighting Core (API 13)
 
 ## Installation
 
@@ -24,7 +24,15 @@ https://github.com/galaara98/FastFighting-Daggerheart/releases/latest/download/m
 - **Characters:** traits, Evasion, damage thresholds, Hit Points, Stress, Hope (and its most, scars and all), Armor Slots, Proficiency and Experiences; the weapons equipped (else an unarmed attack: Proficiency in d4s, Strength or Finesse); the actions on its features (class, subclass, ancestry, community) and on the domain cards in its loadout (not the vault).
 - **Adversaries:** type and tier, Difficulty, thresholds, Hit Points, Stress, Experiences, motives and tactics; the standard attack; and the actions of its action features (reactions and passives aren't played yet). A **Minion** falls to any damage, and with **Minion (X)** each X damage fells another of its kind; a **Horde** hits for its lesser damage once it has marked half its Hit Points; a **Solo** with **Relentless (X)** can take the spotlight X times in a GM turn. A Minion's **Group Attack** isn't played yet.
 - **Actions,** from their data, never their names: an attack (its trait, or a spellcast with the character's spellcasting trait; an adversary's attack modifier), a reaction roll it forces (a save against the Difficulty), damage without a roll, healing that clears Hit Points, and effects (bonuses to rolls, damage and Evasion; Vulnerable, Hidden, Restrained). Their costs (Hope, Stress, an Armor Slot, the GM's Fear) and uses carry over. Ranges are the system's, in feet, from its **Range Measurement** rule.
-- **Personality:** a character's from its traits (Instinct or Knowledge make a tactician, Strength and Presence a bold one, Presence a loyal one); an adversary's from its type (a Solo bold and fearless, a Skulk cunning, a Minion faint-hearted) and tier; motives such as feeding or hunting make a beast that fights on instinct and won't talk. Leaders: an adversary Leader (then a Solo), a character by its Presence.
+- **Personality:** a character starts as the usual hero, and its whole sheet moves it a little, each part shown in the trait's reason:
+  - its traits, against the spread its class suggests (a hero who spread them as its class's guide does moves nothing; a wizard who put its best in Strength is bolder and less of a planner): Knowledge and Instinct make a planner, Strength, Presence and Agility a bold one, Finesse a self-serving one, Presence a loyal one;
+  - its level (experience makes a planner);
+  - its domains, its class's and its domain cards' (Valor bold and loyal, Blade bold, Bone and Codex planners, Midnight self-serving and secretive, Splendor selfless, Grace warm, Sage giving, Arcana impulsive, Dread ruthless);
+  - its subclass (more, the deeper it's gone), ancestry (where its features say so: an infernis fearless, a galapa careful) and community (Slyborne self-serving, Orderborne loyal, Loreborne a planner, Ridgeborne steady ...), known by the system's own ids (the compendium a subclass came from, a lore reference), the name only as a fallback;
+  - its features and the domain cards in its loadout, by what their actions do: help aimed at its allies, mending others, striking at a cost in its own Hit Points or at its foes' Hope, calling help, a Rally die;
+  - its scars (less nerve) and the Stress slots it took on (more), and whether it's in the party (where the world has one).
+
+  An adversary's from its type (a Solo bold and fearless, a Skulk cunning, a Minion faint-hearted) and tier; motives such as feeding or hunting make a beast that fights on instinct and won't talk; then its features, by what they do, and the damage it's immune to or resists (bolder). Leaders: an adversary Leader (then a Solo), a character by its Presence.
 
 ## How a fight plays
 
@@ -85,7 +93,7 @@ When FastFighting sets a character up by itself (the first time it sees it: see 
   - a Bruiser a Brawler and a Tank; a Horde a Brawler, relentless; a Leader leads; a Minion follows; a Ranged one a Wallflower; a Skulk a Wallflower, a Thief, a little cruel; a Social one a Diplomat; a Solo Relentless; a Support an Enabler.
   - Its fighting style and first target follow its type: a Skulk flanks the weakest; a Ranged one shoots, casters first; a Solo never retreats.
 - **A beast** (its motives: hunt, feed and the like) fights on instinct: no talker's pill, and it never talks.
-- **Keywords:** its biography (what was written, not the class's questions), description, motives and tactics, and its Experiences' names.
+- **Keywords:** what's said of it counts in full: a character's faith and Experiences, an adversary's description, motives and tactics, and Experiences. Its story counts a little: a character's background (what was written, not the class's questions), an adversary's notes. A character's connections are about the others, so they're left out.
 
 ## The planner's Daggerheart row
 

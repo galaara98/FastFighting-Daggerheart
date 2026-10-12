@@ -8,8 +8,8 @@ import { registerLoreBoost } from "./lore.js";
 
 export const MODULE_ID = "fast-fighting-daggerheart";
 
-/** The core API this helper is written against (rolls by who rolls, the system's own round, shared pools). */
-const NEEDS_API = 12;
+/** The core API this helper is written against (rolls by who rolls, the system's own round, shared pools, traits from parts). */
+const NEEDS_API = 13;
 
 /**
  * The last translation module we knew of for this game system, by language: in a language other than English, this
