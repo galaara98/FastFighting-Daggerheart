@@ -181,7 +181,7 @@ export function traitMoves({ id, traits = {}, names = {}, ranges = RANGES }) {
   return [
     { id: `${id}.grapple`, name: names.grapple ?? "", kind: "control", check: { mod: num(traits.strength), against: "ac" }, onHit: [null, null, restrained, restrained], traitMove: "grapple", ...melee },
     { id: `${id}.maneuver`, name: names.maneuver ?? "", kind: "control", check: { mod: num(traits.agility), against: "ac" }, onHit: [null, null, vulnerable, vulnerable], traitMove: "maneuver", ...melee },
-    { id: `${id}.hide`, name: names.hide ?? "", kind: "buff", targets: "self", check: { mod: num(traits.finesse), dc: 12 }, onDegree: [null, null, hidden, hidden], traitMove: "hide" }
+    { id: `${id}.hide`, name: names.hide ?? "", kind: "buff", targets: "self", check: { mod: num(traits.finesse), dc: 12 }, onDegree: [null, null, hidden, hidden], traitMove: "hide", setup: true, leans: ["lowProfile"] }
   ];
 }
 
@@ -191,7 +191,8 @@ export function traitMoves({ id, traits = {}, names = {}, ranges = RANGES }) {
  */
 export function helpAnAlly({ id, label = "", ranges = RANGES }) {
   return {
-    id: `${id}.help`, name: label, kind: "buff", resource: "hope", resourceCost: 1, economy: "free", includeSelf: false,
+    // (Anyone can: not a specialty, though it costs a Hope.)
+    id: `${id}.help`, name: label, kind: "buff", resource: "hope", resourceCost: 1, economy: "free", includeSelf: false, special: false,
     outcome: { mods: { attackDie: 6, checkDie: 6 }, uses: 1, rounds: 2, label }, ...reachOf("close", ranges)
   };
 }

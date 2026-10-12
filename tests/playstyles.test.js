@@ -137,3 +137,11 @@ describe("in a fight", () => {
     expect(killed).toBeGreaterThan(0);
   });
 });
+
+describe("what counts as its own", () => {
+  test("Hide is what one keeping a low profile goes for (one in a hurry doesn't stop for it); Help an Ally is anyone's", () => {
+    const [, , hide] = traitMoves({ id: "w", traits: { finesse: 1 }, ranges: RANGES });
+    expect(hide).toMatchObject({ setup: true, leans: ["lowProfile"] });
+    expect(helpAnAlly({ id: "w" }).special).toBe(false);
+  });
+});

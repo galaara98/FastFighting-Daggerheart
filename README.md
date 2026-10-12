@@ -8,7 +8,7 @@ Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFig
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
-- **Needs:** FastFighting Core (API 10)
+- **Needs:** FastFighting Core (API 11)
 
 ## Installation
 
@@ -44,7 +44,7 @@ Every perk a playstyle (or a tactics answer) can switch on does something here. 
 
 | Perk (playstyles) | In Daggerheart |
 | --- | --- |
-| Hard to spot (Chicken, Fragile, Wallflower) | Foes' attention slides off it, and it can **Hide** (Finesse against Difficulty 12): Hidden, rolls against it at disadvantage, until it attacks. |
+| Hard to spot (Chicken, Fragile, Wallflower) | Foes' attention slides off it, and it would rather **Hide** (Finesse against Difficulty 12): Hidden, rolls against it at disadvantage, until it attacks. |
 | Spoiling (Instigator most; Cruel, Wants to Lead, Wallflower, Puzzle-Maniac) | It would rather **Grapple** (Strength against the foe's Difficulty: Restrained) or **Maneuver** (Agility: Vulnerable until the foe next acts), or use a feature that lays a condition, than strike. |
 | Helping (Enabler, People-Pleaser, Moralist, Martyr, Redeem-Seeker, Tank) | **Help an Ally**: a Hope for a d6 on a friend's next action roll, without taking the spotlight; friends asking for help are answered. |
 | In a hurry (Impatient, Speed-Runner) | **Sprint** for a foe beyond Close range: an Agility roll against Difficulty 12 that takes the spotlight's action (made, up to Far); an adversary moves up to Very Far as its action. |
@@ -65,8 +65,9 @@ Tactics answers:
 - **Shields** (raise a shield always, sparingly, never): how freely it marks **Armor Slots**: against any hit; against Major or worse; only against Severe. Let them decide: Major or worse, and a Minor hit while it has more than half its slots.
 - **Resources** (conserve, balanced, nova): how readily it spends a Hope on an Experience (only for a big difference; for a fair one, keeping three for its Hope feature; for any), as well as on its Hope, Stress and Armor Slot features.
 - **Potions:** a potion drunk once its Hit Points fall below the threshold.
-- **A friend falling** (rescue): it tends a friend out cold, or heals it.
+- **A friend falling** (rescue): it tends a friend out cold (in the fight, and after it), or heals it.
 - **Retreat** ("never"): also means Risk It All when its last Hit Point is marked.
+- **Magic and specialties** (an Un-Mundane character leans on them): its domain cards and its class, subclass, ancestry and community features (an adversary's, its features), and anything that casts. Its weapons, the trait moves, Help an Ally and potions are what anyone could do.
 
 **Homebrew** (the SRD doesn't say; this module's reading, kept to the system's own mechanics where it could):
 - Striking a character out cold from Avoid Death: it rolls the Duality Dice; Fear higher, it dies; otherwise it hangs on, still out cold.

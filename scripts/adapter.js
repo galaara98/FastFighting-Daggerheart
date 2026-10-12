@@ -189,7 +189,8 @@ export class DaggerheartAdapter extends SystemAdapter {
       if ( item.type === "domainCard" ? item.system.inVault : item.type !== "feature" ) continue;
       for ( const a of item.system.actions ?? [] ) {
         const spec = toActionSpec(plain(a), { ...common, id: `${id}.${item.id}.${a.id ?? a._id}`, label: a.name && a.name !== item.name ? `${item.name}: ${a.name}` : item.name, effectsById: effectsOf(item) });
-        if ( spec ) actions.push(spec);
+        // (Its own: a class, subclass, ancestry or community feature, a domain card. What "magic and specialties" means.)
+        if ( spec ) actions.push({ ...spec, feature: true });
       }
     }
     // Its consumables: as many uses as it has of each (a potion to drink).
@@ -297,7 +298,8 @@ export class DaggerheartAdapter extends SystemAdapter {
         // (A Minion's Group Attack, many as one for a Fear, isn't played: each one attacks on its own.)
         if ( type === "minion" && [...(data.cost ?? [])].some(c => c.key === "fear") ) continue;
         const spec = toActionSpec(data, { ...common, id: `${id}.${item.id}.${data._id}`, label: item.name, effectsById: effectsOf(item) });
-        if ( spec ) actions.push(spec);
+        // (An adversary's own features: its specialties.)
+        if ( spec ) actions.push({ ...spec, feature: true });
       }
     }
     const beast = isBeast(sys.motivesAndTactics);
@@ -362,7 +364,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       for ( const a of item.system.actions ?? [] ) {
         const data = plain(a);
         const spec = toActionSpec(data, { ...common, id: `${id}.${item.id}.${data._id}`, label: item.name, effectsById: effectsOf(item) });
-        if ( spec ) actions.push(spec);
+        if ( spec ) actions.push({ ...spec, feature: true });
       }
     }
     return {
