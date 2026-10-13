@@ -209,6 +209,13 @@ describe("the system's actions", () => {
   test("Stress damage is its own", () => {
     expect(damagePartsOf({ main: { applyTo: "stress", value: { custom: { enabled: true, formula: "1" } } } })).toEqual([parseFormula("1", "stress")]);
   });
+
+  test("a flat count of no dice is its bonus alone (a Minion's 4 damage), as the system reads it", () => {
+    const fixedHarm = n => ({ main: { type: ["physical"], applyTo: "hitPoints", value: { dice: "d6", bonus: 4, multiplier: "flat", flatMultiplier: n } } });
+    expect(damagePartsOf(fixedHarm(0))).toEqual([parseFormula("4", "physical")]);
+    expect(damagePartsOf(fixedHarm(null))).toEqual([parseFormula("4", "physical")]);
+    expect(damagePartsOf(fixedHarm(2))).toEqual([parseFormula("2d6+4", "physical")]);
+  });
 });
 
 describe("personality and leaders", () => {

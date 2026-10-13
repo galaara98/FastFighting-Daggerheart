@@ -35,8 +35,8 @@ export function reachOf(key, ranges = RANGES) {
 }
 
 /**
- * A damage formula's parts: its dice (as many as its Proficiency, for "prof"; else its own count), its bonus, or its
- * own formula. Typed physical or magical; Stress damage as "stress".
+ * A damage formula's parts: its dice (as many as its Proficiency, for "prof"; else its own count, none at all for a
+ * count of 0), its bonus, or its own formula. Typed physical or magical; Stress damage as "stress".
  */
 export function damagePartsOf(damage, { proficiency = 1 } = {}) {
   const main = damage?.main ?? damage?.parts?.hitPoints ?? null;
@@ -50,7 +50,9 @@ export function damagePartsOf(damage, { proficiency = 1 } = {}) {
   const faces = Number(/d(\d+)/.exec(String(value.dice ?? ""))?.[1]) || 0;
   const count = Math.max(1, num(value.flatMultiplier) || 1) * (value.multiplier === "prof" ? Math.max(1, proficiency) : 1);
   const flat = num(value.bonus);
-  if ( !faces ) return flat > 0 ? [part([], flat, type)] : [];
+  // (A flat count of no dice, as the system's own formula reads it: its bonus alone. A Minion's "4 physical".)
+  const diceless = value.multiplier === "flat" && value.flatMultiplier !== undefined && !(num(value.flatMultiplier) > 0);
+  if ( !faces || diceless ) return flat > 0 ? [part([], flat, type)] : [];
   return [part([{ n: count, faces }], flat, type)];
 }
 
