@@ -94,16 +94,16 @@
     },
     "Plan": {
       "Title": "Daggerheart",
-      "Hint": "How the GM runs this fight: the Fear it starts with, and how freely it spends Fear to bring more adversaries into the spotlight.",
-      "FearHint": "The Fear the GM has going in. It starts as the world's Fear, and Make it So writes back what the fight leaves.",
+      "Hint": "The GM's Fear going in, and how freely it's spent on more adversaries.",
+      "FearHint": "The GM's Fear going in; Make it So writes back what's left.",
       "Spending": "Spending {fear}",
-      "SpendingHint": "On a GM turn, one adversary takes the spotlight. The GM can spend a Fear for each one more.",
+      "SpendingHint": "Each GM turn one adversary acts; each Fear spent adds one more.",
       "sparing": "Sparing",
-      "sparingHint": "One more adversary in a GM turn, only while the GM holds more than 4 Fear.",
+      "sparingHint": "One more adversary only while the GM holds over 4 Fear.",
       "steady": "Steady",
-      "steadyHint": "One more adversary in a GM turn, while the GM holds more than 1 Fear.",
+      "steadyHint": "One more adversary while the GM holds over 1 Fear.",
       "free": "Free",
-      "freeHint": "As many more adversaries as there is Fear for."
+      "freeHint": "As many more adversaries as there's Fear for."
     },
     "Out": {
       "HitPoints": "{name} marked: {from} → {to} (of {max})",
