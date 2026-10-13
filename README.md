@@ -4,7 +4,7 @@
 > - **Programming:** I am a skilled programmer by profession, but AI was used heavily as a co-pilot.
 > - **Strings:** ALL initial strings were created by AI.
 
-Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFighting), the Foundry VTT module that simulates a fight (or a tense standoff) thousands of times, tells the story of one fair draw, and commits it to the tokens with **Make it So**.
+Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFighting), the Foundry VTT module that simulates a fight (or a tense standoff) thousands of times, tells the story of one fair draw, and commits it to the tokens with **Do it For Real Now**.
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
@@ -64,7 +64,7 @@ Every perk a playstyle (or a tactics answer) can switch on does something here. 
 | Healers and casters as targets | Anyone with a spellcast attack counts as a caster; anyone with healing (a domain card, a potion) as a healer. |
 | Thief | Lifts gold or gear (Finesse against 12 + the victim's Instinct). A character's gold is its sheet's (coins, handfuls, bags, chests); its stowed gear, what it carries and hasn't equipped. |
 | Trap avoiders (Thief, Puzzle-Maniac, Skeptic, Lore-Collector, Chicken, Wallflower) | **Environments** (a raging river, a collapsing bridge) are hazards: their action features act on GM turns, reaction rolls against their Difficulty; a trap avoider may spot one and keep clear of it. |
-| Finishing the fallen (Cruel) | An adversary whose last Hit Point is marked is **defeated**: the table decides what that means, and Make it So marks it Defeated; one who would kill (Cruel, or a foe) kills it, and it's marked Dead. A character out cold from Avoid Death can be struck (homebrew, below). |
+| Finishing the fallen (Cruel) | An adversary whose last Hit Point is marked is **defeated**: the table decides what that means, and Do it For Real Now marks it Defeated; one who would kill (Cruel, or a foe) kills it, and it's marked Dead. A character out cold from Avoid Death can be struck (homebrew, below). |
 | Sparing the fallen (Moralist, Peacekeeper, Diplomat; "avoid killing") | Leaves the defeated as they are. |
 | Mending, healing (Fragile, Moralist, Martyr, Enabler) | Healing domain cards, and potions (a character's consumables: drunk by whoever carries them, at its potion threshold). |
 | Locked doors (Puzzle-Maniac most) | **Smash** (Strength) or **Tinker** (Finesse) against Difficulty 12, or break it down. |
@@ -122,13 +122,13 @@ Left to the core: how freely Hope and Stress are spent, what's nearby, and every
 
 ## The planner's Daggerheart row
 
-- **Fear:** what the GM has going in. It starts as the world's Fear; Make it So writes back what the fight leaves.
+- **Fear:** what the GM has going in. It starts as the world's Fear; Do it For Real Now writes back what the fight leaves.
 - **Spending Fear:** on a GM turn, one adversary takes the spotlight, and a Fear brings one more:
   - **Sparing:** one more, only while the GM holds more than 4 Fear;
   - **Steady** (the default): one more, while it holds more than 1;
   - **Free:** as many more as there is Fear for.
 
-## Make it So
+## Do it For Real Now
 
 - A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), a scar, and how it ended (unconscious from Avoid Death, dead).
 - An adversary: Hit Points and Stress marked; Defeated (or Dead, when one who would kill beat it), its combatant defeated; hidden when it fled.
@@ -137,7 +137,7 @@ Left to the core: how freely Hope and Stress are spent, what's nearby, and every
 - Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
 - The GM's Fear, written to the world.
 
-Undo puts it all back.
+Rewind This Encounter puts it all back.
 
 ## Not yet played
 
