@@ -151,12 +151,20 @@
       "coins": "Coins",
       "handfuls": "Handfuls",
       "bags": "Bags",
-      "chests": "Chests"
+      "chests": "Chests",
+      "title": "Gold"
     },
     "Sprint": {
       "Made": "sprints (Agility, {note}): up to Far range",
       "Missed": "tries to sprint (Agility, {note}) and gets no farther than Close range",
       "Adversary": "closes in, up to Very Far range"
+    },
+    "Hp": "HP",
+    "ItemType": {
+      "weapon": "Weapon",
+      "armor": "Armor",
+      "consumable": "Consumable",
+      "loot": "Loot"
     }
   }
 }

@@ -1,7 +1,7 @@
 /**
  * The adapter, with stand-ins for the system's actors: a character (its traits, gold, a potion, loot, the trait moves,
  * Help an Ally, sizing up, tending, theft, doors; who it is, from its whole sheet), an adversary (its personality, its
- * reactions), an environment (a hazard), and Sprint in a fight.
+ * reactions, its weak spot and words), an environment (a hazard), the system's words and gear, and Sprint in a fight.
  */
 import { describe, expect, test } from "vitest";
 import { DaggerheartAdapter } from "../scripts/adapter.js";
@@ -143,6 +143,45 @@ describe("an adversary", () => {
     const spec = await new DaggerheartAdapter().toCombatantSpec(tokenOf(treant()));
     expect(spec.reactions).toEqual([{ id: "t-x1.f1.r1", label: "Thorny Armor", on: "damaged", damage: [parseFormula("1d10+5", "physical")], resource: "stress", amount: 1, range: 5 }]);
     expect(spec.actions.map(a => a.name)).toEqual(["Branch"]);
+  });
+
+  test("its weak spot is one to exploit, not a weakness; its words are its best Experience's; a hand in its pocket is against its Difficulty", async () => {
+    const spec = await new DaggerheartAdapter().toCombatantSpec(tokenOf(treant()));
+    expect(spec.iwr.exploit).toEqual({ magical: 1 });
+    expect(spec.iwr.weak).toEqual({});
+    expect(spec.social.pitches.persuade).toEqual({ skill: "Intimidation", mod: 3 });
+    expect(spec.social.resist.steal).toEqual({ dc: 13, label: text("FFDAGGERHEART.Difficulty") });
+    expect(spec.perception).toBe(3);
+    // (No Experiences: its type's word, and nothing to add.)
+    const plain = treant();
+    plain.system.experiences = {};
+    expect((await new DaggerheartAdapter().toCombatantSpec(tokenOf(plain))).social.pitches.intimidate).toEqual({ skill: text("FFDAGGERHEART.Type.bruiser"), mod: 0 });
+  });
+});
+
+describe("the system's words and gear", () => {
+  test("the kinds of gear to ask for: weapons, armor, consumables, loot, in the system's words", () => {
+    const { categories, materials, rarities } = new DaggerheartAdapter().itemCatalog();
+    expect(categories.map(c => c.key)).toEqual(["weapon", "armor", "consumable", "loot"]);
+    expect(categories[0].label).toBe(text("FFDAGGERHEART.ItemType.weapon"));
+    expect([materials, rarities]).toEqual([[], []]);
+    // (The system's own word, where it has one.)
+    const i18n = globalThis.game.i18n;
+    globalThis.game.i18n = { ...i18n, has: k => k === "TYPES.Item.loot" || i18n.has(k), localize: k => (k === "TYPES.Item.loot" ? "Item" : i18n.localize(k)) };
+    expect(new DaggerheartAdapter().itemCatalog().categories.at(-1)).toEqual({ key: "loot", label: "Item" });
+  });
+
+  test("its words: a Difficulty, Hit Points (short), and its money (Gold, or what the world calls it)", () => {
+    const adapter = new DaggerheartAdapter();
+    expect(adapter.term("hp")).toBe(text("FFDAGGERHEART.Hp"));
+    expect(adapter.term("money")).toBe(text("FFDAGGERHEART.Gold.title"));
+    expect(adapter.term("sp")).toBe(null);
+    // (A world that renamed its money.)
+    const homebrew = { currency: { title: "Crowns" } };
+    globalThis.game.settings = { get: (ns, key) => (key === "Homebrew" ? homebrew : undefined), settings: new Map([["daggerheart.Homebrew", { type: { schema: { getField: () => ({ initial: "Gold" }) } } }]]) };
+    expect(adapter.term("money")).toBe("Crowns");
+    homebrew.currency.title = "Gold";
+    expect(adapter.term("money")).toBe(text("FFDAGGERHEART.Gold.title"));
   });
 });
 

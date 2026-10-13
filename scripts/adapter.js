@@ -14,7 +14,8 @@
  * An environment (a raging river, a collapsing bridge) is a hazard: its action features act on GM turns.
  * For the playstyles: a character's gold and stowed gear (to steal, or bargain with), its consumables (a potion to
  * drink), the trait moves anyone can make (Grapple, Maneuver, Hide), Help an Ally, sizing a foe up (Analyze or Perceive),
- * tending a friend out cold, doors (Smash, Tinker), and the damage type a foe resists less (its weak spot).
+ * tending a friend out cold, doors (Smash, Tinker), the damage type a foe resists less (its weak spot), and the kinds
+ * of gear to ask for (weapons, armor, consumables, loot).
  * Who it is (traits.js): a character from its whole sheet (traits against its class's guide, level, domains and cards,
  * subclass, ancestry, community, what its features do, scars, Stress slots, party); an adversary from its type, tier,
  * motives, features and the damage it resists.
@@ -33,6 +34,8 @@ import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
 const TRAITS = Object.freeze(["agility", "strength", "finesse", "instinct", "presence", "knowledge"]);
+/** What it carries that can change hands (a deal, a theft): the system's item types for gear. */
+const GOODS = Object.freeze(["weapon", "armor", "consumable", "loot"]);
 /** An adversary's tier, as the level of a character of that tier (for what's typical). */
 const TIER_LEVEL = Object.freeze({ 1: 1, 2: 3, 3: 6, 4: 9 });
 
@@ -74,11 +77,21 @@ function currency() {
 }
 export const goldValue = (gold = {}, kinds = currency()) => kinds.reduce((s, k) => s + num(gold[k.key]) * k.value, 0);
 
+/**
+ * The world's name for its money: its homebrew settings' (where the GM renamed it from the system's own), else the
+ * system's word (Gold).
+ */
+function moneyWord() {
+  const title = plain(setting("Homebrew"))?.currency?.title;
+  const initial = globalThis.game?.settings?.settings?.get?.(`${SYSTEM}.Homebrew`)?.type?.schema?.getField?.("currency.title")?.initial;
+  return title && title !== initial ? title : systemWord("DAGGERHEART.CONFIG.Gold.title", "Gold.title");
+}
+
 /** Things it carries but isn't using (a consumable, loot, a weapon or armor not equipped): to give up, or have stolen. */
 function stowedOf(actor) {
   const out = [];
   for ( const item of actor.items ) {
-    if ( !["consumable", "loot", "weapon", "armor"].includes(item.type) || !(num(item.system.quantity ?? 1) > 0) || item.system.equipped ) continue;
+    if ( !GOODS.includes(item.type) || !(num(item.system.quantity ?? 1) > 0) || item.system.equipped ) continue;
     out.push({ id: item.id, name: item.name, value: num(item.system.tier) || 1, category: item.type, rarity: "" });
   }
   return out;
@@ -86,7 +99,8 @@ function stowedOf(actor) {
 
 /**
  * The damage type a foe resists less than the other (resistant or immune to one, not the other): its weak spot, as the
- * playstyles see it (a Puzzle-Maniac goes for it). Nothing comes off or adds on because of it: it only says where to aim.
+ * playstyles see it (a Puzzle-Maniac goes for it). Nothing comes off or adds on because of it: it only says where to aim
+ * (iwr.exploit, not a weakness: a Lore-Collector who has sized it up gains no more for it).
  */
 export function weakSpot(sys) {
   const r = sys.resistance ?? {};
@@ -103,6 +117,9 @@ function adversaryGold(type, tier, beast, kinds = currency()) {
   return handful * tier * (type === "leader" || type === "solo" ? 2 : 1);
 }
 const typeName = k => systemWord(`DAGGERHEART.CONFIG.AdversaryType.${k}.label`, `Type.${k}`);
+
+/** Its Experiences worth a bonus, best first: [{name, value}]. */
+const experiencesOf = sys => Object.values(sys.experiences ?? {}).map(e => ({ name: e.name, value: num(e.value) })).filter(e => e.value > 0).sort((a, b) => b.value - a.value);
 
 /** An item's effects, by id: {statuses, changes, duration}. */
 function effectsOf(item) {
@@ -268,7 +285,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       restrained: conditionName("restrained"), vulnerable: conditionName("vulnerable"), hidden: conditionName("hidden")
     } }));
     actions.push(helpAnAlly({ id, label: t("HelpAnAlly"), given: t("Helped"), ranges: r }));
-    const experiences = Object.values(sys.experiences ?? {}).map(e => ({ name: e.name, value: num(e.value) })).filter(e => e.value > 0).sort((a, b) => b.value - a.value);
+    const experiences = experiencesOf(sys);
     const kinds = currency();
     const wits = traits.knowledge >= traits.instinct ? "knowledge" : "instinct";
     const derived = this.deriveTraits(actor);
@@ -286,7 +303,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       // (Farther than Close: Sprint, an Agility roll that takes the spotlight's action.)
       sprint: { range: r.far, mod: traits.agility },
       actions,
-      iwr: { ...harmOf(sys, { thresholds: sys.damageThresholds, armor: armorMax }), weak: weakSpot(sys) },
+      iwr: { ...harmOf(sys, { thresholds: sys.damageThresholds, armor: armorMax }), exploit: weakSpot(sys) },
       resources: { hope: num(hope.value), stress: Math.max(0, num(stress.max) - num(stress.value)), armor: Math.max(0, armorMax - armorMarked), ...items },
       hopeMax: num(hope.max) || 6,
       stressMax: num(stress.max),
@@ -373,8 +390,10 @@ export class DaggerheartAdapter extends SystemAdapter {
     }
     const beast = isBeast(sys.motivesAndTactics, sys.type);
     const derived = this.deriveTraits(actor);
-    const best = Math.max(0, ...Object.values(sys.experiences ?? {}).map(e => num(e.value)));
+    // (Its best Experience: what it brings to a roll that isn't an attack, a pitch or noticing a fight.)
+    const best = experiencesOf(sys)[0] ?? null;
     const thresholds = sys.damageThresholds ?? {};
+    const difficulty = systemWord("DAGGERHEART.GENERAL.difficulty", "Difficulty");
     return {
       id, tokenId: id, actorId: actor.id, actorUuid: actor.uuid,
       name: tokenDoc.name ?? actor.name,
@@ -395,7 +414,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       sprint: { range: r.veryFar },
       actions,
       reactions: reactions.length ? reactions : undefined,
-      iwr: { ...harmOf(sys, { thresholds: type === "minion" ? { major: 0, severe: 0 } : thresholds, minion }), weak: weakSpot(sys) },
+      iwr: { ...harmOf(sys, { thresholds: type === "minion" ? { major: 0, severe: 0 } : thresholds, minion }), exploit: weakSpot(sys) },
       resources: { stress: Math.max(0, num(stress.max) - num(stress.value)) },
       stressMax: num(stress.max),
       conditionImmune: conditionImmune(sys),
@@ -404,12 +423,14 @@ export class DaggerheartAdapter extends SystemAdapter {
       traitReasons: derived.reasons,
       flags: { ...derived.flags },
       diesAtZero: true,
-      perception: best,
+      perception: best?.value ?? 0,
       creatureTraits: [type],
       creatureKind: typeName(type),
       social: {
-        pitches: beast ? {} : Object.fromEntries(["persuade", "intimidate", "deceive"].map(k => [k, { skill: typeName(type), mod: best + (type === "social" ? 2 : 0) }])),
-        resist: Object.fromEntries(["persuade", "intimidate", "deceive"].map(k => [k, { dc: num(sys.difficulty), label: systemWord("DAGGERHEART.GENERAL.difficulty", "Difficulty") }])),
+        // (Its words: its best Experience, by its name; with none, its type's.)
+        pitches: beast ? {} : Object.fromEntries(["persuade", "intimidate", "deceive"].map(k => [k, { skill: best?.name || typeName(type), mod: (best?.value ?? 0) + (type === "social" ? 2 : 0) }])),
+        // (Anything tried on it, a hand in its pocket too, is against its Difficulty.)
+        resist: Object.fromEntries(["persuade", "intimidate", "deceive", "steal"].map(k => [k, { dc: num(sys.difficulty), label: difficulty }])),
         resolve: tier - 1,
         languages: beast ? [] : ["common"]
       },
@@ -653,9 +674,22 @@ export class DaggerheartAdapter extends SystemAdapter {
     return commitFear(spec.options?.system, replay);
   }
 
-  /** Daggerheart's words: rolls against a Difficulty (a character's Evasion); no money played yet. */
+  /**
+   * The kinds of thing a character can ask for in a standoff: Daggerheart's gear (weapons, armor, consumables, loot), in
+   * the system's own words. It has no materials or rarities.
+   */
+  itemCatalog() {
+    return { categories: GOODS.map(key => ({ key, label: systemWord(`TYPES.Item.${key}`, `ItemType.${key}`) })), materials: [], rarities: [] };
+  }
+
+  /**
+   * Daggerheart's words: rolls against a Difficulty (a character's Evasion), its Hit Points (HP), and its money (Gold,
+   * or what the world calls it).
+   */
   term(key) {
     if ( key === "ac" ) return systemWord("DAGGERHEART.GENERAL.difficulty", "Difficulty");
+    if ( key === "hp" ) return systemWord("DAGGERHEART.GENERAL.HitPoints.short", "Hp");
+    if ( key === "money" ) return moneyWord();
     return null;
   }
 
