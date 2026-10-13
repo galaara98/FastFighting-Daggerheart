@@ -83,6 +83,12 @@ const TYPE_TACTICS = Object.freeze({
 /** Subclasses that are their class's healer (by traits.js subclassKey): what they heal with, they heal eagerly. */
 const HEALER_SUBCLASSES = new Set(["warden-of-renewal"]);
 
+/** Subclasses that make more of a consumable (by traits.js subclassKey: a Hedge witch's Herbal Remedies clears one more). */
+const CONSUMABLE_SUBCLASSES = new Set(["hedge"]);
+
+/** When a potion is drunk (tactics' potionThreshold), most Hit Points left first: drunk below that share of them. */
+const POTION_AT = Object.freeze(["75", "50", "25"]);
+
 /** Adversary types whose features are the whole of them (a Solo's, a Leader's): they reach for them first. */
 const FEATURED = new Set(["solo", "leader"]);
 
@@ -92,12 +98,15 @@ export const tierOf = level => Math.max(1, Math.min(4, Math.floor(((Number(level
 /**
  * Daggerheart's own answers to the tactics questions, and what it offers and expects to end an argument, wherever its
  * data says something (the core reads the rest from the hidden scores): {key: {value, why}} (why: the reason the GM
- * sees, the system's own name for what decided it).
+ * sees, the system's own name for what decided it). Where two things on its sheet answer the same question, the first
+ * said stands: the surer word is said first.
  *
  * A player character (its build, leaving room for its player):
+ *  - preferredAction: its primary weapon (the secondary is its off hand);
  *  - style: its class's domains (STYLE_BY_DOMAIN); a front-line or skirmishing class with a Far or Very Far primary
  *    weapon fights at range, a Sage class (a Ranger) with a Melee or Very Close one at the front;
  *  - target: a protector (Valor) goes for whoever threatens its friends;
+ *  - retreat: a protector (Valor) doesn't leave its friends while the fight can be won;
  *  - shield (how freely it marks Armor Slots), with Armor Slots to mark: a feature or card built on marking them (more
  *    marked at once, more slots for good) or a Valor class, against any hit; anyone else, against Major or worse;
  *  - healAggro, with a feature or card that clears others' Hit Points: eagerly for a Splendor class or a healer
@@ -105,17 +114,21 @@ export const tierOf = level => Math.max(1, Math.min(4, Math.floor(((Number(level
  *  - selfRevived: a Valor class gets back up and back in; talk: a Grace class talks when it could work;
  *  - specialty: a caster (by its domains) with a spell or grimoire it attacks with leans on them hard; anyone with a
  *    feature or card it attacks with, some;
+ *  - potionThreshold: with a potion (a consumable that clears its own Hit Points), it drinks once it has marked as many
+ *    as its best one clears, so none of it goes to waste;
+ *  - consumables: a subclass that makes more of them (a Hedge witch's) uses them freely;
  *  - offer and expect: a Highborne character buys its way out with a handful of gold (if it has one); a Slyborne one
  *    wants paying, a handful a tier.
  * An adversary:
- *  - its type (TYPE_TACTICS); its standard attack: a front-line type's that reaches Far shoots, and a Leader's, Social's
- *    or Standard one's closes in (Melee, Very Close) or shoots (Far, Very Far);
+ *  - its standard attack: a front-line type's that reaches Far shoots, and a Leader's, Social's or Standard one's
+ *    closes in (Melee, Very Close) or shoots (Far, Very Far); then its type (TYPE_TACTICS) for the rest;
  *  - healAggro, with an action feature that clears others' Hit Points: eagerly for a Support, else as the fight allows;
  *  - beyond: an action feature that summons others calls them (runs for help);
  *  - specialty: with action features it attacks with, a Solo or a Leader leans on them hard, anyone else some;
  *  - offer: a Social one with gold to its name buys its way out with a handful.
- * Its motives and tactics, and anyone's Experiences, are words: they're left to the core's keywords. Nothing for an
- * environment.
+ * Its motives and tactics, and anyone's Experiences, are words: they're left to the core's keywords. How freely it spends
+ * Hope or Stress (resourceUse) its sheet doesn't say: every class's Hope feature costs three, which the rules keep back
+ * already. Nothing for an environment.
  *
  * @param {object} d
  * @param {boolean} [d.pc]
@@ -125,7 +138,10 @@ export const tierOf = level => Math.max(1, Math.min(4, Math.floor(((Number(level
  * A character's:
  * @param {string[]} [d.domains]   its class's
  * @param {string} [d.subclass]    its subclass's key (traits.js subclassKey)
- * @param {{name: string, range: string}|null} [d.weapon]   its primary weapon
+ * @param {{name: string, range: string, action?: string}|null} [d.weapon]   its primary weapon (action: its attack's
+ *        id, as its CombatantSpec has it)
+ * @param {{name: string, heals: number}[]} [d.potions]   its own drinks: what each clears on average
+ * @param {number} [d.hpMax]       its Hit Points
  * @param {number} [d.armor]       its Armor Slots
  * @param {string[]} [d.armorBuilders]   features and loadout cards built on marking Armor Slots (names)
  * @param {string[]} [d.healers]   features and loadout cards that clear others' Hit Points (names)
@@ -137,12 +153,12 @@ export const tierOf = level => Math.max(1, Math.min(4, Math.floor(((Number(level
  * @param {{name: string, range: string}|null} [d.attack]   its standard attack
  * @param {string[]} [d.healers]   @param {string[]} [d.summons]   @param {string[]} [d.specialties]   its action
  *        features that clear others' Hit Points, that summon, that attack (names)
- * @param {object} [d.names]   the words shown: {domains: {valor ...}, armor (Armor Slots), type}
+ * @param {object} [d.names]   the words shown: {domains: {valor ...}, armor (Armor Slots), subclass, type}
  * @returns {Record<string, {value: string|object, why: string}>}
  */
 export function daggerheartTactics(d = {}) {
   const out = {};
-  const say = (key, value, why) => { out[key] = { value, why: String(why ?? "") }; };
+  const say = (key, value, why) => { if ( !(key in out) && value !== undefined && why ) out[key] = { value, why: String(why) }; };
   if ( d.pc ) characterTactics(d, say);
   else if ( d.type ) adversaryTactics(d, say);
   return out;
@@ -157,13 +173,17 @@ function characterTactics(d, say) {
   const domain = k => names.domains?.[k] ?? k;
   const valor = domains.includes("valor");
 
-  // Its fighting style: its class's domains; a martial class's primary weapon says whether it keeps its distance.
+  // Its primary weapon, its everyday attack; its fighting style: its class's domains, and a martial class's primary
+  // weapon says whether it keeps its distance.
+  if ( d.weapon?.action ) say("preferredAction", d.weapon.action, d.weapon.name);
   const [key, style] = STYLE_BY_DOMAIN.find(([k]) => domains.includes(k)) ?? [];
   const range = d.weapon?.range;
   if ( ["frontline", "skirmisher"].includes(style) && FAR.has(range) ) say("style", "ranged", d.weapon.name);
   else if ( style === "ranged" && NEAR.has(range) ) say("style", "frontline", d.weapon.name);
   else if ( style ) say("style", style, domain(key));
   if ( style === "protector" ) say("target", "protect", domain(key));
+  // (A protector stays with its friends while the fight can be won.)
+  if ( valor ) say("retreat", "losing", domain("valor"));
 
   // Its Armor Slots: built to mark them, or Valor, against any hit; else against Major or worse.
   if ( Number(d.armor) > 0 ) {
@@ -186,6 +206,17 @@ function characterTactics(d, say) {
   if ( style === "caster" && spell ) say("specialty", "strong", spell.name);
   else if ( d.specialties?.length ) say("specialty", "some", d.specialties[0].name);
 
+  // Its potions: drunk once it has marked as many Hit Points as its best one clears (none of it wasted), and with a
+  // quarter of them left at the latest. (Drunk below a share of them: with that share rounded up, less one, at most.)
+  const potion = [...(d.potions ?? [])].sort((a, b) => b.heals - a.heals)[0];
+  const hp = Number(d.hpMax);
+  if ( potion && hp > 0 ) {
+    const unwasted = at => hp - (Math.ceil((Number(at) / 100) * hp) - 1) >= potion.heals;
+    say("potionThreshold", POTION_AT.find(unwasted) ?? POTION_AT.at(-1), potion.name);
+  }
+  // Consumables made more of: used freely.
+  if ( CONSUMABLE_SUBCLASSES.has(d.subclass) ) say("consumables", "freely", names.subclass);
+
   // What its community brings to a standoff.
   const purse = d.purse ?? {};
   if ( d.talks === false || !(purse.handful > 0) ) return;
@@ -197,9 +228,9 @@ function adversaryTactics(d, say) {
   const names = d.names ?? {};
   const kind = names.type ?? d.type;
   const plan = TYPE_TACTICS[d.type] ?? {};
-  for ( const [k, v] of Object.entries(plan) ) say(k, v, kind);
 
   // Its standard attack: one that reaches Far shoots; a rank-and-file one (or a Leader's, a Social's) closes in or shoots.
+  // (What it fights with is surer than its type: said first.)
   const range = d.attack?.range;
   if ( FAR.has(range) && (plan.style === "frontline" || !plan.style) ) say("style", "ranged", d.attack.name);
   else if ( NEAR.has(range) && !plan.style ) say("style", "frontline", d.attack.name);
@@ -211,6 +242,9 @@ function adversaryTactics(d, say) {
   if ( summon ) say("beyond", "seekHelp", summon);
   const special = d.specialties?.[0];
   if ( special ) say("specialty", FEATURED.has(d.type) ? "strong" : "some", special);
+
+  // Its type, for the rest.
+  for ( const [k, v] of Object.entries(plan) ) say(k, v, kind);
 
   // A Social one with gold buys its way out.
   const purse = d.purse ?? {};

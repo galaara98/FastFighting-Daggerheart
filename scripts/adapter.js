@@ -18,10 +18,10 @@
  * subclass, ancestry, community, what its features do, scars, Stress slots, party); an adversary from its type, tier,
  * motives, features and the damage it resists.
  * What it would do (auto.js daggerheartTactics: "Let this character decide"): a character's class domains, subclass,
- * primary weapon, Armor Slots, the features and cards in its loadout, its community; an adversary's type, standard
- * attack and action features.
+ * primary weapon, Armor Slots, potions, the features and cards in its loadout, its community; an adversary's type,
+ * standard attack and action features.
  */
-import { SystemAdapter, hasWords } from "./core.js";
+import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
 import { toActionSpec, traitMoves, helpAnAlly, mendsOthers, RANGES } from "./actions.js";
 import { loreBoost } from "./lore.js";
@@ -461,8 +461,8 @@ export class DaggerheartAdapter extends SystemAdapter {
 
   /**
    * What it would do (auto.js daggerheartTactics), each answer with its reason: a character's by its class's domains,
-   * subclass, primary weapon, Armor Slots, the features and cards in its loadout (what they do) and its community; an
-   * adversary's by its type, its standard attack and what its features do. Nothing for an environment.
+   * subclass, primary weapon, Armor Slots, potions, the features and cards in its loadout (what they do) and its
+   * community; an adversary's by its type, its standard attack and what its features do. Nothing for an environment.
    */
   tacticHints(actor, spec) {
     if ( !["character", "adversary"].includes(actor?.type) ) return {};
@@ -487,19 +487,24 @@ export class DaggerheartAdapter extends SystemAdapter {
       const available = i => sys.isItemAvailable?.(i) !== false;
       const doing = items.filter(i => (i.type === "feature" && available(i)) || (i.type === "domainCard" && !i.system?.inVault));
       const weapon = sys.primaryWeapon;
+      // (Its own drinks: a consumable that clears its Hit Points, and how many on average.)
+      const potions = (spec?.actions ?? []).filter(a => a.consumable && a.kind === "heal" && a.selfOnly)
+        .map(a => ({ name: a.name, heals: (a.heal ?? []).reduce((s, p) => s + Math.max(0, meanPart(p)), 0) })).filter(p => p.heals > 0);
       return {
         pc: true,
         talks,
         domains,
         subclass: subclass ? subclassKey({ source: sourceOf(subclass), name: subclass.name }) : null,
-        weapon: weapon ? { name: weapon.name, range: weapon.system?.attack?.range ?? null } : null,
+        weapon: weapon ? { name: weapon.name, range: weapon.system?.attack?.range ?? null, action: spec?.actions?.find(a => a.id === `${spec.id}.${weapon.id}`)?.id ?? null } : null,
+        potions,
+        hpMax: num(spec?.hp?.max),
         armor: num(sys.armorScore?.max),
         armorBuilders: doing.filter(buildsOnArmor).map(i => i.name),
         healers: doing.filter(healsOthers).map(i => i.name),
         specialties: specialties.map(i => ({ name: i.name, spell: i.type === "domainCard" && ["spell", "grimoire"].includes(i.system?.type) })),
         community: community ? { key: loreKey({ ref: community.system?.loreReference, name: community.name }), name: community.name } : null,
         purse: { money: goldValue(sys.gold, kinds), handful, tier: tierOf(num(sys.levelData?.level?.current) || 1) },
-        names: { domains: Object.fromEntries(domains.map(k => [k, domainName(k)])), armor: resourceWord("armor") }
+        names: { domains: Object.fromEntries(domains.map(k => [k, domainName(k)])), armor: resourceWord("armor"), subclass: subclass?.name ?? "" }
       };
     }
     const type = sys.type ?? "standard";

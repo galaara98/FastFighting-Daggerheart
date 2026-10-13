@@ -96,13 +96,19 @@ When FastFighting sets a character up by itself (the first time it sees it: see 
 What "Let this character decide" stands for is Daggerheart's answer wherever its data says something, and the GM sees why (a domain, a card's or feature's name, a weapon, an adversary's type or attack). Where it says nothing, the core reads the character's hidden scores.
 
 A character, by its build (its player can always choose otherwise):
+- **Favorite attack:** its primary weapon.
 - **Style:** its class's domains: Valor a protector; Dread, Arcana or Codex a caster; Midnight a skirmisher; Blade the front line; Sage at range; Bone a skirmisher; Splendor a caster. So an Assassin skirmishes and a Witch casts. A front-line or skirmishing class whose primary weapon reaches Far shoots instead, and a Ranger with a Melee or Very Close weapon closes in.
 - **Target:** a protector goes for whoever threatens its friends.
+- **Retreat:** a protector (Valor) doesn't leave its friends while the fight can be won.
 - **Shields (Armor Slots):** a Valor class, or one with a feature or card built on marking them (Iron Will, Brace, Armorer: more marked at once, or slots of its own), marks one against any hit; anyone else with Armor Slots, against Major or worse.
 - **Healing others:** with a feature or card that clears others' Hit Points (Mending Touch, Life Support), eagerly for a Splendor class or a Warden of Renewal, else as the fight allows. It goes to a friend who falls, as a Valor class does. A Valor class gets back up and back in.
 - **Talking:** a Grace class talks when it could work.
 - **Magic and specialties:** a caster with a spell or grimoire it attacks with leans on it hard; anyone with a feature or card it attacks with, some.
+- **Potions:** drunk once it has marked as many Hit Points as its best potion clears, so none of it is wasted (with a quarter of them left at the latest).
+- **Consumables:** a Hedge witch (Herbal Remedies makes each one clear more) uses them freely.
 - **Offer and expect:** a Highborne character buys its way out with a handful of gold (if it has one); a Slyborne one wants paying, a handful a tier.
+
+Where two things on its sheet answer the same question, the surer one stands (an adversary's attack over its type).
 
 An adversary:
 - **Its type:** a Bruiser, a Horde or a Minion holds the front line against whoever is nearest; a Leader goes for the most dangerous and runs for help; a Ranged one shoots, casters first; a Skulk flanks the weakest and slips away when hurt; a Social one talks first and gets out when hurt; a Solo holds the front against the most dangerous and never gives up; a Support casts, against whoever threatens its friends.
@@ -110,7 +116,7 @@ An adversary:
 - **Its features:** one that clears others' Hit Points heals (a Support eagerly); one that summons calls the others in (runs for help); with features it attacks with, a Solo or a Leader leans on them hard, anyone else some.
 - **Offer:** a Social one with gold buys its way out with a handful.
 
-Left to the core: a favorite attack, how freely Hope and Stress are spent, consumables and potions, retreat and what's nearby for a character, and every other question the above doesn't answer. Motives and tactics and Experiences are words: they go to the keywords, not these answers.
+Left to the core: how freely Hope and Stress are spent, what's nearby, and every other question the above doesn't answer. Motives and tactics and Experiences are words: they go to the keywords, not these answers.
 
 ## The planner's Daggerheart row
 

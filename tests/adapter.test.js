@@ -195,11 +195,23 @@ describe("what it would do (\"Let this character decide\"), from its sheet", () 
       style: { value: "protector", why: valor }, target: { value: "protect", why: valor }, shield: { value: "always", why: "Iron Will" },
       allyDying: { value: "rescue", why: valor }, selfRevived: { value: "rejoin", why: valor }
     });
+    // (Its primary weapon, its everyday attack; its potion, drunk once it has marked what the potion clears.)
+    expect(out.preferredAction).toEqual({ value: `t-a1.w1`, why: "Dagger" });
+    expect(spec.actions.map(a => a.id)).toContain(out.preferredAction.value);
+    expect(out.potionThreshold).toEqual({ value: "50", why: "Minor Health Potion" });
     // (Nothing it attacks with of its own; no healing, no talking class, no community that bargains.)
-    for ( const k of ["specialty", "healAggro", "talk", "offer", "expect", "preferredAction"] ) expect(out[k]).toBeUndefined();
+    for ( const k of ["specialty", "healAggro", "talk", "offer", "expect", "consumables", "resourceUse"] ) expect(out[k]).toBeUndefined();
     const { lets, why } = withHints({}, out, spec);
     expect(Object.keys(lets).sort()).toEqual(Object.keys(out).sort());
     expect(why.shield).toBe("Iron Will");
+  });
+
+  test("every answer the adapter gives carries its reason", async () => {
+    for ( const actor of [guardian(), wizard()] ) {
+      const { out, spec } = await hints(actor);
+      for ( const [k, { why }] of Object.entries(out) ) expect([k, typeof why === "string" && why.length > 0]).toEqual([k, true]);
+      expect(Object.keys(withHints({}, out, spec).why).sort()).toEqual(Object.keys(out).sort());
+    }
   });
 
   test("a Highborne Wizard: a caster leaning on its grimoire, healing eagerly (Mending Touch), offering a handful of gold", async () => {
