@@ -1,8 +1,10 @@
 /**
  * What Daggerheart says about a character, for the one time FastFighting sets it up by itself (the core's
- * foundry/auto-config.js): the playstyles that fit it, its own answers to the tactics questions, and its biography (what's
- * said of it, its story) for the keywords. Read from data, never names: a character's class by its two domains (so a
- * homebrew class counts as its domains say), an adversary by its type, a beast by its motives. Pure.
+ * foundry/auto-config.js): the playstyles that fit it, what it would do (its answers to the tactics questions, and what
+ * it offers and expects to end an argument, each with its reason: what "Let this character decide" stands for), and its
+ * biography (what's said of it, its story) for the keywords. Read from data, never names: a character's class by its two
+ * domains (so a homebrew class counts as its domains say), its features and cards by what their actions and effects do,
+ * its community by its lore reference; an adversary by its type, its standard attack and what its features do. Pure.
  */
 
 /** What each domain leans a character toward (a class has two; they add up). */
@@ -43,35 +45,176 @@ export function daggerheartHints({ pc = false, domains = [], type = null, beast 
   return out;
 }
 
-/** The fighting style a class's domains make for: the first of these it has. */
-const STYLE_BY_DOMAIN = [["valor", "protector"], ["arcana", "caster"], ["codex", "caster"], ["blade", "frontline"], ["sage", "ranged"], ["midnight", "skirmisher"], ["bone", "skirmisher"], ["splendor", "caster"]];
+/**
+ * The fighting style a class's domains make for: the first of these it has. Valor stands in front of its friends; Dread,
+ * Arcana and Codex cast; Midnight slips about (before Blade: an Assassin is a skirmisher, a Warrior holds the front);
+ * Sage keeps its distance (a Ranger); Bone slips about; Splendor casts. Every SRD class lands on one: Grace, the one
+ * left, always comes with one of these.
+ */
+const STYLE_BY_DOMAIN = Object.freeze([["valor", "protector"], ["dread", "caster"], ["arcana", "caster"], ["codex", "caster"], ["midnight", "skirmisher"], ["blade", "frontline"], ["sage", "ranged"], ["bone", "skirmisher"], ["splendor", "caster"]]);
 
-/** What each kind of adversary does, by the book's description of it. */
+/** Ranges that keep their distance (Far, Very Far), and those that close in (Melee, Very Close). Close is neither. */
+const FAR = new Set(["far", "veryFar"]);
+const NEAR = new Set(["melee", "veryClose"]);
+
+/**
+ * What each kind of adversary does, by the SRD's account of its type:
+ *  - a Bruiser, a Horde, a Minion: the front line, at whoever is nearest;
+ *  - a Leader commands and summons others: it goes for the most dangerous, and runs for help;
+ *  - a Ranged one is fragile up close: it shoots, at the casters first;
+ *  - a Skulk maneuvers and ambushes: it flanks the weakest, and slips away when hurt;
+ *  - a Social one would rather talk, and is no fighter: it talks first, and gets out when hurt;
+ *  - a Solo is a fight on its own: the front line, the most dangerous, never giving up;
+ *  - a Support enhances its friends and hinders its foes: it casts, and goes for whoever threatens its friends.
+ * A Standard one is the rank and file: its type says nothing more.
+ */
 const TYPE_TACTICS = Object.freeze({
   bruiser: { style: "frontline", target: "nearest" },
   horde: { style: "frontline", target: "nearest" },
   minion: { style: "frontline", target: "nearest" },
-  leader: { target: "dangerous" },
+  leader: { target: "dangerous", beyond: "seekHelp" },
   ranged: { style: "ranged", target: "casters" },
-  skulk: { style: "skirmisher", target: "weakest" },
+  skulk: { style: "skirmisher", target: "weakest", retreat: "hurt" },
   social: { talk: "first", retreat: "hurt" },
   solo: { style: "frontline", target: "dangerous", retreat: "never" },
   support: { style: "caster", target: "protect" }
 });
 
-/** Daggerheart's own answers to the tactics questions, where it knows better than the numbers: {key: answer}. */
-export function daggerheartTactics({ pc = false, domains = [], type = null, beast = false } = {}) {
+/** Subclasses that are their class's healer (by traits.js subclassKey): what they heal with, they heal eagerly. */
+const HEALER_SUBCLASSES = new Set(["warden-of-renewal"]);
+
+/** Adversary types whose features are the whole of them (a Solo's, a Leader's): they reach for them first. */
+const FEATURED = new Set(["solo", "leader"]);
+
+/** A character's tier, by its level (1; 2 to 4; 5 to 7; 8 to 10). */
+export const tierOf = level => Math.max(1, Math.min(4, Math.floor(((Number(level) || 1) + 1) / 3) + 1));
+
+/**
+ * Daggerheart's own answers to the tactics questions, and what it offers and expects to end an argument, wherever its
+ * data says something (the core reads the rest from the hidden scores): {key: {value, why}} (why: the reason the GM
+ * sees, the system's own name for what decided it).
+ *
+ * A player character (its build, leaving room for its player):
+ *  - style: its class's domains (STYLE_BY_DOMAIN); a front-line or skirmishing class with a Far or Very Far primary
+ *    weapon fights at range, a Sage class (a Ranger) with a Melee or Very Close one at the front;
+ *  - target: a protector (Valor) goes for whoever threatens its friends;
+ *  - shield (how freely it marks Armor Slots), with Armor Slots to mark: a feature or card built on marking them (more
+ *    marked at once, more slots for good) or a Valor class, against any hit; anyone else, against Major or worse;
+ *  - healAggro, with a feature or card that clears others' Hit Points: eagerly for a Splendor class or a healer
+ *    subclass, else as the fight allows; allyDying: a Valor class, or one that heals others, goes to a friend who falls;
+ *  - selfRevived: a Valor class gets back up and back in; talk: a Grace class talks when it could work;
+ *  - specialty: a caster (by its domains) with a spell or grimoire it attacks with leans on them hard; anyone with a
+ *    feature or card it attacks with, some;
+ *  - offer and expect: a Highborne character buys its way out with a handful of gold (if it has one); a Slyborne one
+ *    wants paying, a handful a tier.
+ * An adversary:
+ *  - its type (TYPE_TACTICS); its standard attack: a front-line type's that reaches Far shoots, and a Leader's, Social's
+ *    or Standard one's closes in (Melee, Very Close) or shoots (Far, Very Far);
+ *  - healAggro, with an action feature that clears others' Hit Points: eagerly for a Support, else as the fight allows;
+ *  - beyond: an action feature that summons others calls them (runs for help);
+ *  - specialty: with action features it attacks with, a Solo or a Leader leans on them hard, anyone else some;
+ *  - offer: a Social one with gold to its name buys its way out with a handful.
+ * Its motives and tactics, and anyone's Experiences, are words: they're left to the core's keywords. Nothing for an
+ * environment.
+ *
+ * @param {object} d
+ * @param {boolean} [d.pc]
+ * @param {boolean} [d.talks]   it has words (offer and expect only then)
+ * @param {{money: number, handful: number, tier: number}} [d.purse]   its gold (in the smallest coin), a handful's
+ *        worth in it, its tier
+ * A character's:
+ * @param {string[]} [d.domains]   its class's
+ * @param {string} [d.subclass]    its subclass's key (traits.js subclassKey)
+ * @param {{name: string, range: string}|null} [d.weapon]   its primary weapon
+ * @param {number} [d.armor]       its Armor Slots
+ * @param {string[]} [d.armorBuilders]   features and loadout cards built on marking Armor Slots (names)
+ * @param {string[]} [d.healers]   features and loadout cards that clear others' Hit Points (names)
+ * @param {{name: string, spell: boolean}[]} [d.specialties]   features and loadout cards it attacks with (a spell or
+ *        grimoire, or not)
+ * @param {{key: string, name: string}|null} [d.community]   its lore reference (traits.js loreKey) and name
+ * An adversary's:
+ * @param {string} [d.type]
+ * @param {{name: string, range: string}|null} [d.attack]   its standard attack
+ * @param {string[]} [d.healers]   @param {string[]} [d.summons]   @param {string[]} [d.specialties]   its action
+ *        features that clear others' Hit Points, that summon, that attack (names)
+ * @param {object} [d.names]   the words shown: {domains: {valor ...}, armor (Armor Slots), type}
+ * @returns {Record<string, {value: string|object, why: string}>}
+ */
+export function daggerheartTactics(d = {}) {
   const out = {};
-  if ( pc ) {
-    const style = STYLE_BY_DOMAIN.find(([d]) => domains.includes(d))?.[1];
-    if ( style ) out.style = style;
-    // (Valor stands in front of its friends: it marks Armor Slots freely, and goes to a friend who falls.)
-    if ( domains.includes("valor") ) Object.assign(out, { target: "protect", shield: "always", allyDying: "rescue" });
-    if ( domains.includes("splendor") ) out.healAggro = "aggressive";
-    if ( domains.includes("grace") ) out.talk = "opportune";
-  } else Object.assign(out, TYPE_TACTICS[type] ?? {});
-  if ( beast ) Object.assign(out, { talk: "never", beyond: "stay" });
+  const say = (key, value, why) => { out[key] = { value, why: String(why ?? "") }; };
+  if ( d.pc ) characterTactics(d, say);
+  else if ( d.type ) adversaryTactics(d, say);
   return out;
+}
+
+/** So many handfuls of gold, as the survey stores an amount. */
+const handfuls = (n, purse) => ({ kind: "money", amount: n, coin: purse.handful });
+
+function characterTactics(d, say) {
+  const names = d.names ?? {};
+  const domains = d.domains ?? [];
+  const domain = k => names.domains?.[k] ?? k;
+  const valor = domains.includes("valor");
+
+  // Its fighting style: its class's domains; a martial class's primary weapon says whether it keeps its distance.
+  const [key, style] = STYLE_BY_DOMAIN.find(([k]) => domains.includes(k)) ?? [];
+  const range = d.weapon?.range;
+  if ( ["frontline", "skirmisher"].includes(style) && FAR.has(range) ) say("style", "ranged", d.weapon.name);
+  else if ( style === "ranged" && NEAR.has(range) ) say("style", "frontline", d.weapon.name);
+  else if ( style ) say("style", style, domain(key));
+  if ( style === "protector" ) say("target", "protect", domain(key));
+
+  // Its Armor Slots: built to mark them, or Valor, against any hit; else against Major or worse.
+  if ( Number(d.armor) > 0 ) {
+    const builder = d.armorBuilders?.[0];
+    if ( builder ) say("shield", "always", builder);
+    else if ( valor ) say("shield", "always", domain("valor"));
+    else say("shield", "spare", names.armor);
+  }
+
+  // Healing others, and a friend who falls.
+  const healer = d.healers?.[0];
+  if ( healer ) say("healAggro", domains.includes("splendor") || HEALER_SUBCLASSES.has(d.subclass) ? "aggressive" : "balanced", healer);
+  if ( valor ) say("allyDying", "rescue", domain("valor"));
+  else if ( healer ) say("allyDying", "rescue", healer);
+  if ( valor ) say("selfRevived", "rejoin", domain("valor"));
+  if ( domains.includes("grace") ) say("talk", "opportune", domain("grace"));
+
+  // Its specialties: its spells and grimoires, for a caster; any feature or card it attacks with, some.
+  const spell = (d.specialties ?? []).find(s => s.spell);
+  if ( style === "caster" && spell ) say("specialty", "strong", spell.name);
+  else if ( d.specialties?.length ) say("specialty", "some", d.specialties[0].name);
+
+  // What its community brings to a standoff.
+  const purse = d.purse ?? {};
+  if ( d.talks === false || !(purse.handful > 0) ) return;
+  if ( d.community?.key === "highborne" && purse.money >= purse.handful ) say("offer", handfuls(1, purse), d.community.name);
+  if ( d.community?.key === "slyborne" ) say("expect", handfuls(Math.max(1, Number(purse.tier) || 1), purse), d.community.name);
+}
+
+function adversaryTactics(d, say) {
+  const names = d.names ?? {};
+  const kind = names.type ?? d.type;
+  const plan = TYPE_TACTICS[d.type] ?? {};
+  for ( const [k, v] of Object.entries(plan) ) say(k, v, kind);
+
+  // Its standard attack: one that reaches Far shoots; a rank-and-file one (or a Leader's, a Social's) closes in or shoots.
+  const range = d.attack?.range;
+  if ( FAR.has(range) && (plan.style === "frontline" || !plan.style) ) say("style", "ranged", d.attack.name);
+  else if ( NEAR.has(range) && !plan.style ) say("style", "frontline", d.attack.name);
+
+  // What its features do: mend its friends, call others in, strike.
+  const healer = d.healers?.[0];
+  if ( healer ) say("healAggro", d.type === "support" ? "aggressive" : "balanced", healer);
+  const summon = d.summons?.[0];
+  if ( summon ) say("beyond", "seekHelp", summon);
+  const special = d.specialties?.[0];
+  if ( special ) say("specialty", FEATURED.has(d.type) ? "strong" : "some", special);
+
+  // A Social one with gold buys its way out.
+  const purse = d.purse ?? {};
+  if ( d.type === "social" && d.talks !== false && purse.handful > 0 && purse.money >= purse.handful ) say("offer", handfuls(1, purse), kind);
 }
 
 /** Text from the sheet's HTML: the class's own questions (in bold) left out, so only what was written counts. */

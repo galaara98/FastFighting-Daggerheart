@@ -114,8 +114,9 @@ export function marksFor(damage, thresholds = {}, { massive = false } = {}) {
 
 /**
  * Whether a player character marks an Armor Slot against a hit of so many Hit Points. Its shield tactic says how freely
- * it uses its defenses: "always", against any hit; "spare", against Major or worse; "never", only against Severe. Let
- * them decide: against Major or worse, and against a Minor hit while it has more than half its slots.
+ * it uses its defenses: "always", against any hit; "spare", against Major or worse; "never", only against Severe ("Let
+ * this character decide" is one of these: auto.js). Unanswered: against Major or worse, and against a Minor hit while
+ * it has more than half its slots.
  */
 function marksArmor(u, marks) {
   const left = u.resources?.armor ?? 0;

@@ -90,6 +90,17 @@ export function effectOf(action, effectsById = new Map()) {
   return has ? { conditions, mods } : null;
 }
 
+/** The Hit Points a healing action clears, if it clears any. */
+const hitPointsHealed = action => action?.damage?.resources?.hitPoints ?? action?.healing?.hitPoints ?? null;
+
+/**
+ * Does this action clear someone else's Hit Points: healing Hit Points, aimed at anyone but itself (as toActionSpec
+ * plays it: a heal for a friend)?
+ */
+export function mendsOthers(action) {
+  return action?.type === "healing" && !!hitPointsHealed(action)?.value && action.target?.type !== "self" && action.range !== "self";
+}
+
 /** How many it takes in: an area's, or the targets it names (an attack on up to three). */
 function targetsOf(action) {
   const area = list(action.areas)[0];
@@ -145,7 +156,7 @@ export function toActionSpec(action, ctx) {
     case "damage":
       return parts.length ? { ...base, kind: "auto", damage: parts, ...(where ?? reachOf("melee", ctx.ranges)), ...area } : null;
     case "healing": {
-      const hp = action.damage?.resources?.hitPoints ?? action.healing?.hitPoints ?? null;
+      const hp = hitPointsHealed(action);
       if ( !hp?.value ) return null;
       const heal = damagePartsOf({ main: hp }, { proficiency: ctx.proficiency }).map(p => ({ ...p, type: "healing" }));
       return heal.length ? { ...base, kind: "heal", heal, ...(where ?? reachOf("melee", ctx.ranges)) } : null;

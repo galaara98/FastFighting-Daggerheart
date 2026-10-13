@@ -17,13 +17,16 @@
  * Who it is (traits.js): a character from its whole sheet (traits against its class's guide, level, domains and cards,
  * subclass, ancestry, community, what its features do, scars, Stress slots, party); an adversary from its type, tier,
  * motives, features and the damage it resists.
+ * What it would do (auto.js daggerheartTactics: "Let this character decide"): a character's class domains, subclass,
+ * primary weapon, Armor Slots, the features and cards in its loadout, its community; an adversary's type, standard
+ * attack and action features.
  */
 import { SystemAdapter, hasWords } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, traitMoves, helpAnAlly, RANGES } from "./actions.js";
+import { toActionSpec, traitMoves, helpAnAlly, mendsOthers, RANGES } from "./actions.js";
 import { loreBoost } from "./lore.js";
-import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast } from "./traits.js";
-import { daggerheartHints, daggerheartTactics, biographyOf } from "./auto.js";
+import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
+import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
 import { commitDaggerheartOutcome, describeDaggerheartOutcome, describeFear, commitFear, commitDaggerheartConcession } from "./commit.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
@@ -151,6 +154,40 @@ const valuesOf = v => (v == null ? [] : typeof v[Symbol.iterator] === "function"
 function doingOf(item) {
   const changes = valuesOf(item.effects).flatMap(e => valuesOf(e?.system?.changes ?? e?.changes).map(c => c?.key).filter(Boolean));
   return { name: item.name, form: item.system?.featureForm ?? null, actions: valuesOf(item.system?.actions).map(plain), changes };
+}
+
+/** An effect's changes, wherever the system keeps them. */
+const changesOf = e => valuesOf(e?.system?.changes ?? e?.changes);
+
+/**
+ * Is a feature or card built on marking Armor Slots: more of them marked against one hit (Iron Will, Brace), or Armor
+ * Slots of its own for good (Armorer, Bare Bones; not a spell's, for a while)?
+ */
+function buildsOnArmor(item) {
+  return valuesOf(item?.effects).some(e => changesOf(e).some(c => /(?:^|\.)damageReduction\.maxArmorMarked(?:\.|$)/.test(String(c?.key ?? ""))
+    || (c?.type === "armor" && !e?.system?.duration?.type)));
+}
+
+/** Does a feature or card clear someone else's Hit Points (actions.js mendsOthers)? */
+const healsOthers = item => valuesOf(item?.system?.actions).some(a => mendsOthers(plain(a)));
+
+/** Does a feature summon others (a summons, as an action of its own)? */
+const summons = item => valuesOf(item?.system?.actions).some(a => a?.type === "summon");
+
+/**
+ * Its own features and cards the engine plays against a foe (an attack, a reaction roll it forces, a condition it lays),
+ * each once: its specialties, as its CombatantSpec has them.
+ */
+function specialtiesOf(actor, spec) {
+  const items = [...(actor.items ?? [])];
+  const out = [];
+  for ( const a of spec?.actions ?? [] ) {
+    if ( !a?.feature || ["heal", "buff"].includes(a.kind) ) continue;
+    // (Its id: the token's, the item's, the action's.)
+    const item = items.find(i => i.id === String(a.id).split(".")[1]);
+    if ( item && !out.includes(item) ) out.push(item);
+  }
+  return out;
 }
 
 /** "Minion (3)", "Relentless (2)": the number a feature's name carries. */
@@ -422,10 +459,63 @@ export class DaggerheartAdapter extends SystemAdapter {
     return daggerheartHints(this.#facts(actor));
   }
 
-  /** Its own answers to the tactics questions (auto.js): a class's style by its domains, an adversary's by its type. */
-  tacticHints(actor) {
+  /**
+   * What it would do (auto.js daggerheartTactics), each answer with its reason: a character's by its class's domains,
+   * subclass, primary weapon, Armor Slots, the features and cards in its loadout (what they do) and its community; an
+   * adversary's by its type, its standard attack and what its features do. Nothing for an environment.
+   */
+  tacticHints(actor, spec) {
     if ( !["character", "adversary"].includes(actor?.type) ) return {};
-    return daggerheartTactics(this.#facts(actor));
+    return daggerheartTactics(this.#tacticFacts(actor, spec));
+  }
+
+  /** What its sheet says for its answers, as plain data (auto.js daggerheartTactics). */
+  #tacticFacts(actor, spec) {
+    const sys = actor.system ?? {};
+    const items = [...(actor.items ?? [])];
+    const kinds = currency();
+    const handful = kinds.find(k => k.key === "handfuls")?.value ?? 1;
+    const talks = (spec?.social?.languages?.length ?? 0) > 0;
+    const specialties = specialtiesOf(actor, spec);
+    if ( actor.type === "character" ) {
+      const own = type => items.find(i => i.type === type && !i.system?.isMulticlass);
+      const cls = own("class");
+      const subclass = own("subclass");
+      const community = items.find(i => i.type === "community");
+      const domains = [...(cls?.system?.domains ?? [])];
+      // (Its features as the system has them on, and the domain cards in its loadout.)
+      const available = i => sys.isItemAvailable?.(i) !== false;
+      const doing = items.filter(i => (i.type === "feature" && available(i)) || (i.type === "domainCard" && !i.system?.inVault));
+      const weapon = sys.primaryWeapon;
+      return {
+        pc: true,
+        talks,
+        domains,
+        subclass: subclass ? subclassKey({ source: sourceOf(subclass), name: subclass.name }) : null,
+        weapon: weapon ? { name: weapon.name, range: weapon.system?.attack?.range ?? null } : null,
+        armor: num(sys.armorScore?.max),
+        armorBuilders: doing.filter(buildsOnArmor).map(i => i.name),
+        healers: doing.filter(healsOthers).map(i => i.name),
+        specialties: specialties.map(i => ({ name: i.name, spell: i.type === "domainCard" && ["spell", "grimoire"].includes(i.system?.type) })),
+        community: community ? { key: loreKey({ ref: community.system?.loreReference, name: community.name }), name: community.name } : null,
+        purse: { money: goldValue(sys.gold, kinds), handful, tier: tierOf(num(sys.levelData?.level?.current) || 1) },
+        names: { domains: Object.fromEntries(domains.map(k => [k, domainName(k)])), armor: resourceWord("armor") }
+      };
+    }
+    const type = sys.type ?? "standard";
+    // (Its action features: what it does in the spotlight.)
+    const acts = items.filter(i => i.type === "feature" && !i.system?.inactive && i.system?.featureForm === "action");
+    return {
+      pc: false,
+      talks,
+      type,
+      attack: sys.attack ? { name: sys.attack.name, range: sys.attack.range ?? null } : null,
+      healers: acts.filter(healsOthers).map(i => i.name),
+      summons: acts.filter(summons).map(i => i.name),
+      specialties: specialties.map(i => i.name),
+      purse: { money: num(spec?.valuables?.money), handful },
+      names: { type: typeName(type) }
+    };
   }
 
   /**

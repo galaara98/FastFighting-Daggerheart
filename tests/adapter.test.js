@@ -9,6 +9,7 @@ import { daggerheartRules } from "../scripts/rules.js";
 import { replay } from "../../FastFighting/scripts/engine/simulator.js";
 import { parseFormula, STATUS, PC_BASELINE } from "../scripts/core.js";
 import { text } from "./foundry-i18n.js";
+import { withHints } from "../../FastFighting/scripts/foundry/auto-config.js";
 
 const trait = v => ({ value: v });
 const dagger = { type: "attack", range: "melee", target: { type: "any", amount: 1 }, roll: { type: "attack", trait: "finesse" }, cost: [],
@@ -151,5 +152,93 @@ describe("sprinting", () => {
     }
     expect(sprints).toBeGreaterThan(0);
     expect(STATUS.STANDING).toBe("standing");
+  });
+});
+
+describe("what it would do (\"Let this character decide\"), from its sheet", () => {
+  const spellcast = { _id: "x1", type: "attack", range: "far", target: { type: "any", amount: 1 }, roll: { type: "spellcast" }, cost: [],
+    damage: { main: { type: ["magical"], applyTo: "hitPoints", value: { dice: "d10", bonus: 0, multiplier: "prof", flatMultiplier: 1 } } } };
+  const mend = { _id: "m1", type: "healing", target: { type: "any" }, range: "", cost: [{ key: "hope", value: 2 }], damage: { resources: { hitPoints: { applyTo: "hitPoints", value: { custom: { enabled: true, formula: "1" } } } } } };
+
+  /** A Guardian built to mark Armor Slots (Iron Will), and a Highborne Wizard with a healing spell and a grimoire. */
+  const guardian = () => {
+    const actor = character();
+    actor.items.push(
+      { id: "c1", type: "class", name: "Guardian", system: { domains: ["valor", "blade"] }, effects: [] },
+      { id: "f1", type: "feature", name: "Iron Will", system: { actions: [] }, effects: [{ system: { changes: [{ key: "system.rules.damageReduction.maxArmorMarked.value", type: "add", value: 1 }], duration: { description: "" } } }] },
+      { id: "d1", type: "domainCard", name: "I Am Your Shield", system: { domain: "valor", inVault: false, actions: [{ type: "effect", target: { type: "friendly" }, cost: [{ key: "stress", value: 1 }] }] }, effects: [] }
+    );
+    return actor;
+  };
+  const wizard = () => {
+    const actor = character();
+    actor.items.push(
+      { id: "c1", type: "class", name: "Wizard", system: { domains: ["codex", "splendor"] }, effects: [] },
+      { id: "m1", type: "community", name: "Highborne", system: { loreReference: "highborne" }, effects: [] },
+      { id: "d1", type: "domainCard", name: "Mending Touch", system: { domain: "splendor", type: "spell", inVault: false, actions: [mend] }, effects: [] },
+      { id: "d2", type: "domainCard", name: "Book of Illiat", system: { domain: "codex", type: "grimoire", inVault: false, actions: [spellcast] }, effects: [] },
+      // (A spell's Armor Slot for a while isn't a build on them.)
+      { id: "d3", type: "domainCard", name: "Book of Ava", system: { domain: "codex", type: "grimoire", inVault: false, actions: [] }, effects: [{ system: { changes: [{ type: "armor", value: { max: "1" } }], duration: { type: "shortRest" } } }] }
+    );
+    return actor;
+  };
+  const hints = async actor => {
+    const adapter = new DaggerheartAdapter();
+    const spec = await adapter.toCombatantSpec(tokenOf(actor));
+    return { out: adapter.tacticHints(actor, spec, {}), spec };
+  };
+
+  test("a Guardian: a protector by its Valor, marking Armor Slots against any hit (Iron Will), to a friend who falls", async () => {
+    const { out, spec } = await hints(guardian());
+    const valor = text("FFDAGGERHEART.Domain.valor");
+    expect(out).toMatchObject({
+      style: { value: "protector", why: valor }, target: { value: "protect", why: valor }, shield: { value: "always", why: "Iron Will" },
+      allyDying: { value: "rescue", why: valor }, selfRevived: { value: "rejoin", why: valor }
+    });
+    // (Nothing it attacks with of its own; no healing, no talking class, no community that bargains.)
+    for ( const k of ["specialty", "healAggro", "talk", "offer", "expect", "preferredAction"] ) expect(out[k]).toBeUndefined();
+    const { lets, why } = withHints({}, out, spec);
+    expect(Object.keys(lets).sort()).toEqual(Object.keys(out).sort());
+    expect(why.shield).toBe("Iron Will");
+  });
+
+  test("a Highborne Wizard: a caster leaning on its grimoire, healing eagerly (Mending Touch), offering a handful of gold", async () => {
+    const { out, spec } = await hints(wizard());
+    expect(out).toMatchObject({
+      style: { value: "caster", why: text("FFDAGGERHEART.Domain.codex") },
+      shield: { value: "spare", why: text("FFDAGGERHEART.Resource.armor") },
+      healAggro: { value: "aggressive", why: "Mending Touch" },
+      allyDying: { value: "rescue", why: "Mending Touch" },
+      specialty: { value: "strong", why: "Book of Illiat" },
+      offer: { value: { kind: "money", amount: 1, coin: 10 }, why: "Highborne" }
+    });
+    // (A handful is worth ten coins, with coins on: what the survey counts the offer in.)
+    expect(spec.valuables.denominations.map(c => c.value)).toContain(10);
+    const { lets, why } = withHints({}, out, spec);
+    expect(lets.offer).toEqual({ kind: "money", amount: 1, coin: 10 });
+    expect(why.offer).toBe("Highborne");
+  });
+
+  test("an adversary Leader: the most dangerous first, calling its others in, leaning on its features; a close-range attack says no style", async () => {
+    const leader = { id: "l1", uuid: "Actor.l1", name: "Lieutenant", type: "adversary", img: "", statuses: new Set(),
+      items: [
+        { id: "f1", type: "feature", name: "More Where That Came From", system: { featureForm: "action", actions: [{ _id: "s1", type: "summon", cost: [] }] }, effects: [] },
+        { id: "f2", type: "feature", name: "Coup de Grace", system: { featureForm: "action", actions: [{ ...dagger, _id: "k1", cost: [{ key: "fear", value: 1 }], roll: { type: "attack", bonus: 2 } }] }, effects: [] },
+        { id: "f3", type: "feature", name: "Momentum", system: { featureForm: "reaction", actions: [{ _id: "r1", type: "healing", target: { type: "any" }, damage: { resources: { fear: { applyTo: "fear", value: { custom: { enabled: true, formula: "1" } } } } } }] }, effects: [] }
+      ],
+      system: { type: "leader", tier: 1, difficulty: 14, motivesAndTactics: "Bully, command", experiences: {}, resistance: { physical: {}, magical: {} },
+        resources: { hitPoints: { max: 6, value: 0 }, stress: { max: 3, value: 0 } }, damageThresholds: { major: 8, severe: 14 },
+        attack: { ...dagger, name: "Javelin", range: "close", roll: { type: "attack", bonus: 2 } } } };
+    const { out } = await hints(leader);
+    expect(out).toEqual({
+      target: { value: "dangerous", why: text("FFDAGGERHEART.Type.leader") },
+      beyond: { value: "seekHelp", why: "More Where That Came From" },
+      specialty: { value: "strong", why: "Coup de Grace" }
+    });
+  });
+
+  test("an environment: nothing", async () => {
+    const river = { id: "e1", uuid: "Actor.e1", name: "Raging River", type: "environment", img: "", statuses: new Set(), items: [], system: { tier: 1, difficulty: 10 } };
+    expect(new DaggerheartAdapter().tacticHints(river, null, {})).toEqual({});
   });
 });
