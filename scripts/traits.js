@@ -18,6 +18,7 @@
  * An adversary is read from its type (a Solo bold, a Skulk cunning, a Minion faint-hearted ...) and its tier (the
  * higher, the bolder); motives like feeding and hunting mark a beast, which fights on instinct and can't be talked to.
  * Then its features, by what they do, and the damage it's immune to or resists.
+ * A companion is bonded to its partner (loyal, on instinct); an NPC is no fighter (timid); each then by its features.
  */
 import { clamp, traitsFromParts, signedNumber, PC_BASELINE } from "./core.js";
 import { t } from "./words.js";
@@ -38,6 +39,13 @@ const TYPES = Object.freeze({
   standard: { tactical: 45, brave: 50, selfish: 50, loyal: 55 },
   support: { tactical: 60, brave: 40, selfish: 45, loyal: 60 }
 });
+
+/**
+ * A companion: an animal bonded to its partner, going on instinct, at its side whatever comes. An NPC: someone the story
+ * needs, not a fighter.
+ */
+const COMPANION = Object.freeze({ tactical: 35, brave: 55, selfish: 25, loyal: 85 });
+const BYSTANDER = Object.freeze({ tactical: 50, brave: 30, selfish: 50, loyal: 50 });
 
 /** Motives that make a beast of it: it feeds, hunts, burrows; it doesn't bargain. */
 const BEAST = /\b(?:feed|feeding|hunt|hunting|prey|devour|burrow|graze|nest|swarm|consume|eat)\b/i;
@@ -282,12 +290,20 @@ export function adversaryParts(d) {
  * @param {string} [d.motives]  its motives and tactics
  * @param {object} [d.resistance]   {physical: {resistance, immunity}, magical: {...}}
  *        (d.names: {type, harm: {physicalImmunity, physicalResistance, magicalImmunity, magicalResistance}})
+ * A companion's (d.companion) or an NPC's (d.npc): its features (d.items), and d.names: {kind (the system's word for
+ * it), partner (a companion's partner's name)}.
  * @returns {{traits, flags, reasons}}
  */
 export function deriveDaggerheartTraits(d = {}) {
   const flags = {};
   if ( d.pc ) {
     const built = traitsFromParts(PC_BASELINE, pcParts(d), { from: t("Reason.Pc") });
+    return { traits: built.traits, flags, reasons: built.reasons };
+  }
+  if ( d.companion || d.npc ) {
+    const kind = d.names?.kind ?? "";
+    const partner = d.companion && d.names?.partner ? t("Reason.Partner", { name: d.names.partner }) : kind;
+    const built = traitsFromParts(d.companion ? COMPANION : BYSTANDER, adversaryParts(d), { from: { tactical: kind, brave: kind, selfish: kind, loyal: partner }, min: 0, max: 100 });
     return { traits: built.traits, flags, reasons: built.reasons };
   }
   const type = d.type ?? "standard";

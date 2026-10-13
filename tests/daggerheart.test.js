@@ -96,6 +96,20 @@ describe("Hope and Fear", () => {
     expect(u.resources.hope).toBe(2);
   });
 
+  test("a companion's roll is its partner's: the Duality Dice, its Hope to the partner, its Experience for the partner's Hope", () => {
+    const partner = pc();
+    const fang = { id: "fang", resources: {}, sharedPools: partner.sharedPools, partner, spec: { name: "Fang", companionRoll: true, experiences: [{ name: "Tracker", value: 2 }] } };
+    expect(daggerheartRules.dieOf(fang)).toBe(DUALITY);
+    expect(daggerheartRules.dieOf({ spec: { name: "Bandit" } })).toBe(20);
+    const roll = daggerheartRules.roll(fixed(6, 5), 1, 14, { roller: fang, faces: DUALITY, kind: "attack" });
+    expect(roll.experience).toEqual({ name: "Tracker", value: 2 });
+    // (The partner's Hope spent on the companion's Experience, and won back: with Hope.)
+    expect(partner.resources.hope).toBe(2);
+    expect(fang.resources.hope).toBeUndefined();
+    daggerheartRules.roll(fixed(3, 8), 0, 12, { roller: fang, faces: DUALITY, kind: "attack" });
+    expect(partner.sharedPools.fear).toBe(4);
+  });
+
   test("adversaries roll a d20, and say nothing of Hope", () => {
     const roll = daggerheartRules.roll(fixed(15), 3, 12, { roller: { spec: { name: "Bandit" } }, faces: 20, kind: "attack" });
     expect(roll).toMatchObject({ natural: 15, total: 18, degree: 2 });
@@ -132,6 +146,14 @@ describe("harm", () => {
     u.resources.stress = 1;
     expect(daggerheartRules.applyIwr(dh(), { stress: 3 }, u)).toBe(2);
     expect(u.resources.stress).toBe(0);
+  });
+
+  test("a companion marks one Stress for any damage, whatever it is (its Stress is its Hit Points here)", () => {
+    const companion = { dh: { companion: true, thresholds: {}, physical: {}, magical: {}, reduce: {} } };
+    expect([1, 9, 30].map(n => daggerheartRules.applyIwr(companion, { physical: n }))).toEqual([1, 1, 1]);
+    expect(daggerheartRules.applyIwr(companion, { magical: 4, physical: 4 })).toBe(1);
+    expect(daggerheartRules.applyIwr(companion, { physical: 0 })).toBe(0);
+    expect(daggerheartRules.applyIwr(companion, { stress: 2 }, { resources: {} })).toBe(2);
   });
 });
 
@@ -316,6 +338,24 @@ describe("a fight", () => {
     }
     expect(answered).toBeGreaterThan(0);
     expect(stressSpent).toBeGreaterThan(0);
+  });
+
+  test("a companion fights beside its partner, on the Duality Dice, its Hope going to the partner", () => {
+    const fang = { id: "Fang", name: "Fang", side: "friendly", kind: "companion", companionRoll: true, level: 1, hp: { value: 3, max: 3 }, resources: {}, experiences: [],
+      defenses: { ac: 12 }, initiative: { mod: 0 }, speeds: { walk: 30 },
+      actions: [{ id: "Fang.attack", name: "Bite", kind: "strike", bonus: 2, melee: true, reach: 5, damage: [parseFormula("1d8", "physical")] }],
+      iwr: { immune: [], resist: {}, weak: {}, dh: { companion: true, thresholds: {}, physical: {}, magical: {}, reduce: {} } },
+      traits: evasive, flags: { masterId: "Brakka" }, diesAtZero: false };
+    let bites = 0;
+    let dualityNotes = 0;
+    for ( let seed = 1; seed <= 10; seed++ ) {
+      const r = replay(battle([hero("Brakka"), { ...fang }, bandit("B1"), bandit("B2")], { system: { fear: 1 } }), daggerheartRules, seed);
+      const mine = r.log.filter(e => e.type === "attack" && e.actorId === "Fang");
+      bites += mine.length;
+      dualityNotes += mine.filter(e => e.note).length;
+    }
+    expect(bites).toBeGreaterThan(0);
+    expect(dualityNotes).toBe(bites);
   });
 
   test("adversaries act only on GM turns: never more often than the party's failures and Fear allow", () => {

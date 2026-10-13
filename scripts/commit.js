@@ -1,7 +1,8 @@
 /**
  * Daggerheart "Make it So": write one simulated outcome onto a token's actor, returning an undo record.
  * A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), and how it ended up (out cold from
- * Avoid Death, a scar; dead). An adversary: Hit Points and Stress marked, and defeated (dead) or gone. The GM's Fear
+ * Avoid Death, a scar; dead). An adversary: Hit Points and Stress marked, and defeated (dead) or gone. A companion: its
+ * Stress marked (what it took), and defeated as the world says. An NPC: how it ended up (it marks nothing). The GM's Fear
  * (the world's), as the fight left it. Consumables used come off what it carries; gold or an item it gave up (a deal, a
  * demand, a theft) goes to whoever it went to.
  *
@@ -28,6 +29,11 @@ const emptyRecord = (tokenDoc, actor) => ({
 
 /** Hit Points marked, from the Hit Points it had left. */
 const hpMarked = (spec, left) => Math.max(0, Math.min(spec.hp.max, spec.hp.max - Math.max(0, left)));
+/**
+ * Where the harm it took is marked on its sheet: its Hit Points; a companion's Stress (any damage marks one); nowhere
+ * for an NPC (its sheet has neither).
+ */
+const harmTrack = spec => (spec.actorType === "companion" ? "stress" : spec.actorType === "npc" ? null : "hitPoints");
 /** Stress marked, from the Stress it had left. */
 const stressMarked = (spec, left) => Math.max(0, (spec.stressMax ?? 0) - Math.max(0, left));
 const deathMoveName = move => systemWord(`DAGGERHEART.CONFIG.DeathMoves.${{ avoid: "avoidDeath", risk: "riskItAll", blaze: "blazeOfGlory" }[move] ?? "avoidDeath"}.name`, `DeathMove.${move}`);
@@ -36,9 +42,13 @@ const deathMoveName = move => systemWord(`DAGGERHEART.CONFIG.DeathMoves.${{ avoi
 export function describeDaggerheartOutcome(spec, final) {
   const lines = [];
   const s = final.system ?? {};
+  const track = harmTrack(spec);
   const hpBefore = hpMarked(spec, spec.hp.value);
   const hpAfter = hpMarked(spec, final.hp);
-  if ( hpAfter !== hpBefore ) lines.push(t("Out.HitPoints", { name: resourceWord("hp"), from: hpBefore, to: hpAfter, max: spec.hp.max }));
+  if ( track && hpAfter !== hpBefore ) {
+    const stress = track === "stress";
+    lines.push(t(stress ? "Out.Stress" : "Out.HitPoints", { name: resourceWord(stress ? "stress" : "hp"), from: hpBefore, to: hpAfter, max: spec.hp.max }));
+  }
   if ( Number.isFinite(s.stress) ) {
     const before = stressMarked(spec, spec.resources?.stress ?? 0);
     const after = stressMarked(spec, s.stress);
@@ -62,7 +72,7 @@ export function describeDaggerheartOutcome(spec, final) {
   if ( final.status === STATUS.DEAD ) lines.push(t("Out.Killed"));
   else if ( final.status === STATUS.BEATEN ) {
     // (What defeated means is the table's: the world's Defeated automation, when it's on, says which status.)
-    const as = beatenStatus();
+    const as = beatenStatus(spec.actorType);
     lines.push(as === "defeated" ? t("Out.Defeated") : t("Out.DefeatedAs", { status: statusName(as) }));
   } else if ( final.status === STATUS.DOWN ) lines.push(t("Out.Unconscious"));
   else if ( final.status === STATUS.FLED ) lines.push(final.swayed ? t("Out.TalkedAway") : t("Out.Fled"));
@@ -88,9 +98,12 @@ function worldDefeat(type) {
   }
 }
 
-/** A beaten adversary's status: what the world's Defeated automation says (the table decides), else defeated. */
-function beatenStatus() {
-  const own = worldDefeat("adversary");
+/**
+ * A beaten adversary's or companion's status: what the world's Defeated automation says for its kind (the table
+ * decides), else defeated (an NPC's, which the automation leaves alone).
+ */
+function beatenStatus(type = "adversary") {
+  const own = type === "npc" ? null : worldDefeat(type);
   return DEFEAT.includes(own) && own !== "deathMove" ? own : "defeated";
 }
 
@@ -134,7 +147,8 @@ export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = 
     update[path] = value;
     undo.actorUpdate[path] = before ?? 0;
   };
-  set("system.resources.hitPoints.value", hpMarked(spec, final.hp));
+  const track = harmTrack(spec);
+  if ( track ) set(`system.resources.${track}.value`, hpMarked(spec, final.hp));
   if ( Number.isFinite(s.stress) ) set("system.resources.stress.value", stressMarked(spec, s.stress));
   if ( spec.duality ) {
     if ( Number.isFinite(s.hope) ) set("system.resources.hope.value", s.hope);
@@ -166,7 +180,7 @@ export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = 
   if ( Object.keys(update).length ) await actor.update(update);
   // Killed by one who would; beaten (the table says what that means: the world's Defeated automation); knocked out by
   // one who holds back.
-  await settleDefeat(actor, final.status === STATUS.DEAD ? "dead" : final.status === STATUS.BEATEN ? beatenStatus() : final.status === STATUS.DOWN ? "unconscious" : null, undo);
+  await settleDefeat(actor, final.status === STATUS.DEAD ? "dead" : final.status === STATUS.BEATEN ? beatenStatus(spec.actorType) : final.status === STATUS.DOWN ? "unconscious" : null, undo);
   if ( [STATUS.DEAD, STATUS.BEATEN, STATUS.DOWN].includes(final.status) ) {
     const combatant = game.combat?.getCombatantsByToken?.(tokenDoc)?.[0];
     if ( combatant && !combatant.defeated ) {

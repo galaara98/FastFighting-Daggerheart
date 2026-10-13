@@ -1,11 +1,13 @@
 /**
  * The adapter, with stand-ins for the system's actors: a character (its traits, gold, a potion, loot, the trait moves,
  * Help an Ally, sizing up, tending, theft, doors; who it is, from its whole sheet), an adversary (its personality, its
- * reactions, its weak spot and words), an environment (a hazard), the system's words and gear, and Sprint in a fight.
+ * reactions, its weak spot and words), a companion and an NPC, an environment (a hazard), the system's words and gear,
+ * and Sprint in a fight.
  */
 import { describe, expect, test } from "vitest";
 import { DaggerheartAdapter } from "../scripts/adapter.js";
 import { daggerheartRules } from "../scripts/rules.js";
+import { describeDaggerheartOutcome } from "../scripts/commit.js";
 import { replay } from "../../FastFighting/scripts/engine/simulator.js";
 import { parseFormula, STATUS, PC_BASELINE } from "../scripts/core.js";
 import { text } from "./foundry-i18n.js";
@@ -156,6 +158,54 @@ describe("an adversary", () => {
     const plain = treant();
     plain.system.experiences = {};
     expect((await new DaggerheartAdapter().toCombatantSpec(tokenOf(plain))).social.pitches.intimidate).toEqual({ skill: text("FFDAGGERHEART.Type.bruiser"), mod: 0 });
+  });
+});
+
+describe("a companion and an NPC", () => {
+  const companion = partner => ({ id: "c1", uuid: "Actor.c1", name: "Fang", type: "companion", img: "", statuses: new Set(), items: [],
+    system: { partner, evasion: 12, proficiency: 2, experiences: { a: { name: "Tracker", value: 2 }, b: { name: "Loyal Friend", value: 3 } },
+      resources: { stress: { max: 3, value: 1 } }, levelData: { level: { current: 1 } }, rules: {},
+      attack: { name: "Bite", type: "attack", range: "melee", target: { type: "any", amount: 1 }, roll: { type: "attack", bonus: 2 }, cost: [],
+        damage: { main: { type: ["physical"], applyTo: "hitPoints", value: { dice: "d6", multiplier: "prof", flatMultiplier: 1, bonus: 0 } } } } } });
+
+  test("a companion: beside its partner, its Evasion, Experiences and attack (its partner's Spellcast and Proficiency); its Stress for Hit Points", async () => {
+    const adapter = new DaggerheartAdapter();
+    const fang = companion(character());
+    expect(adapter.canHandle(fang)).toBe(true);
+    const spec = await adapter.toCombatantSpec(tokenOf(fang));
+    expect(spec).toMatchObject({
+      kind: "companion", actorType: "companion", companionRoll: true, hp: { value: 2, max: 3 }, defenses: { ac: 12 }, perception: 3,
+      flags: { masterActorId: "a1" }, iwr: { dh: { companion: true } }, experiences: [{ name: "Loyal Friend", value: 3 }, { name: "Tracker", value: 2 }]
+    });
+    expect(spec.actions).toHaveLength(1);
+    expect(spec.actions[0]).toMatchObject({ kind: "strike", name: "Bite", bonus: 2, melee: true, damage: [{ dice: [{ n: 2, faces: 6 }], flat: 0, type: "physical" }] });
+    // (Bound to its partner: loyal, its reason its partner's name.)
+    expect(spec.traits.loyal.base).toBeGreaterThan(75);
+    expect(spec.traitReasons.loyal).toContain("Wren");
+    expect(spec.social.languages).toEqual([]);
+  });
+
+  test("an NPC: a bystander, nothing to fight with, out at the first blow; talking it round or robbing it is against its Difficulty", async () => {
+    const adapter = new DaggerheartAdapter();
+    const clerk = { id: "n1", uuid: "Actor.n1", name: "Clerk", type: "npc", img: "", statuses: new Set(), items: [],
+      system: { difficulty: 11, description: "<p>A nervous clerk.</p>", motives: "Keep the ledger", notes: "" } };
+    expect(adapter.canHandle(clerk)).toBe(true);
+    expect(adapter.canHandle({ type: "party" })).toBe(false);
+    const spec = await adapter.toCombatantSpec(tokenOf(clerk));
+    expect(spec).toMatchObject({ kind: "npc", actorType: "npc", actions: [], hp: { value: 1, max: 1 }, defenses: { ac: 11 }, diesAtZero: false, leadership: null });
+    expect(spec.social.resist.steal).toMatchObject({ dc: 11 });
+    expect(spec.traits.brave.base).toBeLessThan(40);
+    expect(adapter.biography(clerk)).toEqual({ about: "A nervous clerk. Keep the ledger", story: "", against: "" });
+    expect(adapter.tacticHints(clerk, spec, {})).toEqual({});
+  });
+
+  test("Make it So: a companion's Stress marked, an NPC's nothing but how it ended", () => {
+    const fang = { actorType: "companion", hp: { value: 2, max: 3 }, resources: {}, stressMax: 0 };
+    expect(describeDaggerheartOutcome(fang, { hp: 0, status: STATUS.BEATEN, system: {} })).toEqual([
+      text("FFDAGGERHEART.Out.Stress", { name: text("FFDAGGERHEART.Resource.stress"), from: 1, to: 3, max: 3 }), text("FFDAGGERHEART.Out.Defeated")
+    ]);
+    const clerk = { actorType: "npc", hp: { value: 1, max: 1 }, resources: {} };
+    expect(describeDaggerheartOutcome(clerk, { hp: 0, status: STATUS.FLED, system: {} })).toEqual([text("FFDAGGERHEART.Out.Fled")]);
   });
 });
 

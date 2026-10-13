@@ -36,7 +36,8 @@
       "Pc": "Player character",
       "Ability": "{name} {n}",
       "TraitFor": "{name} {n} ({cls}: {usual})",
-      "NoParty": "not in the party"
+      "NoParty": "not in the party",
+      "Partner": "bonded to {name}"
     },
     "Lead": {
       "Presence": "Presence {n}",
@@ -160,6 +161,10 @@
       "Adversary": "closes in, up to Very Far range"
     },
     "Hp": "HP",
+    "ActorType": {
+      "companion": "Companion",
+      "npc": "NPC"
+    },
     "ItemType": {
       "weapon": "Weapon",
       "armor": "Armor",

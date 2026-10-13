@@ -16,7 +16,8 @@
  * Damage rule). A player character marks an Armor Slot to take it down a step, while it has one, for a hit worth it.
  * Stress damage marks Stress; Stress it can't mark becomes Hit Points. A Minion falls to any damage; Minion (X): each
  * X damage another of its kind falls with it. A Horde that has marked half its Hit Points or more hits for its lesser
- * damage.
+ * damage. A companion marks one Stress for any damage, and is out of the fight at its last; its rolls are its partner's
+ * (the Duality Dice: Hope to the partner, Fear to the GM), and it acts at the end of the round.
  * Reactions: only a feature's (an adversary's that answers being hurt, actions.js toReactionSpec), one a round.
  *
  * Death moves (onDropped): a player character whose last Hit Point is marked chooses, as its playstyles lean (else
@@ -50,6 +51,8 @@ const HOPE_SPENDING = Object.freeze({
 });
 
 const isPc = u => !!u?.spec?.duality;
+/** Rolls the Duality Dice: a player character, and a companion (its rolls are its partner's). */
+const rollsDuality = u => isPc(u) || !!u?.spec?.companionRoll;
 const success = d => d[2] + d[3];
 
 /** Gain Hope, up to its maximum. */
@@ -71,18 +74,20 @@ function clearStress(u, n = 1) {
 /**
  * A Hope on an Experience before the dice, when one fits and it's worth it: the roll's chance of success up by WORTH
  * at least, and Hope to spare (its Hope feature wants three: it keeps those back unless the roll is unlikely to work).
+ * A companion's roll is its partner's: the partner's Hope, as the partner spends it, on the companion's Experience.
  */
 function experienceFor(rng, u, mod, dc, options, reaction) {
-  const hope = u.resources?.hope ?? 0;
+  const purse = u.partner ?? u;
+  const hope = purse.resources?.hope ?? 0;
   const best = u.spec.experiences?.[0];
   if ( !(hope > 0) || !(best?.value > 0) || !Number.isFinite(dc) ) return null;
-  const how = HOPE_SPENDING[u.tac?.resourceUse] ?? HOPE_SPENDING.balanced;
+  const how = HOPE_SPENDING[purse.tac?.resourceUse] ?? HOPE_SPENDING.balanced;
   const before = success(dualityChances(mod, dc, { advantage: options.advantage, reaction }));
   const after = success(dualityChances(mod + best.value, dc, { advantage: options.advantage, reaction }));
   if ( after - before < how.worth ) return null;
-  if ( how.keep && hope <= (u.spec.hopeReserve ?? 0) && before >= 0.35 ) return null;
+  if ( how.keep && hope <= (purse.spec.hopeReserve ?? 0) && before >= 0.35 ) return null;
   if ( !rng.chance(FITS) ) return null;
-  u.resources.hope -= 1;
+  purse.resources.hope -= 1;
   return { name: best.name, value: best.value };
 }
 
@@ -272,6 +277,10 @@ export const daggerheartRules = {
     run.sharedPools.fear = clamp(Number.isFinite(asked.fear) ? asked.fear : pcs, 0, FEAR_MAX);
     run.fearStart = run.sharedPools.fear;
     run.dh = { spending: FEAR_SPENDING[asked.spending] ? asked.spending : "steady", gmTurns: 0, lastUp: new Map() };
+    // A companion and its partner, where it's on the field: the partner rolls for it.
+    for ( const u of run.units ) {
+      if ( u.spec.companionRoll ) u.partner = run.units.find(o => o.id === u.spec.flags?.masterId && isPc(o)) ?? null;
+    }
     // Minions of a kind, on a side: the ones that fall with one struck hard enough (Minion (X)).
     const kinds = new Map();
     for ( const u of run.units ) {
@@ -306,9 +315,9 @@ export const daggerheartRules = {
   },
 
   /* Rolls ----------------------------------------------------------------- */
-  /** Player characters roll the Duality Dice; everyone else a d20. */
+  /** Player characters (and their companions) roll the Duality Dice; everyone else a d20. */
   dieOf(u) {
-    return isPc(u) ? DUALITY : 20;
+    return rollsDuality(u) ? DUALITY : 20;
   },
   roll(rng, mod, dc, options = {}) {
     const u = options.roller ?? null;
@@ -317,7 +326,8 @@ export const daggerheartRules = {
     const experience = u ? experienceFor(rng, u, mod, dc, options, reaction) : null;
     const roll = rollDuality(rng, mod + (experience?.value ?? 0), dc, { advantage: options.advantage, reaction, crit: !!u?.lastStand });
     if ( experience ) roll.experience = experience;
-    if ( u && !reaction ) settle(u, roll);
+    // (A companion's Hope is its partner's; its Fear, the GM's.)
+    if ( u && !reaction ) settle(u.partner ?? u, roll);
     roll.note = noteOf(roll, reaction);
     return roll;
   },
@@ -370,6 +380,8 @@ export const daggerheartRules = {
       steps = Math.max(steps, Number(dh?.reduce?.[type]) || 0);
     }
     if ( !dh ) return raw + stress;
+    // (A companion marks a Stress for any damage, whatever it is: its Stress is its Hit Points here.)
+    if ( dh.companion ) return (raw > 0 ? 1 : 0) + stress;
     let marks = marksFor(raw, dh.thresholds, { massive: dh.massive });
     if ( dh.minion && raw > 0 && target ) target.minionOverflow = Math.floor(raw / dh.minion);
     marks = Math.max(0, marks - steps);

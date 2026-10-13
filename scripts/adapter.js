@@ -10,6 +10,10 @@
  * its reaction features that harm whoever hurt it (actions.js toReactionSpec). A Minion falls to any damage (Minion
  * (X): each X damage another of its kind falls too); a Solo with Relentless (X) can be spotlit X times a GM turn. It
  * rolls a d20.
+ * A companion (a Beastbound ranger's): its Evasion, Experiences and attack (its partner's Spellcast and Proficiency),
+ * fighting beside its partner; any damage marks one of its Stress, and at its last it's out of the fight. Its rolls are
+ * its partner's: the Duality Dice. An NPC (a sheet with a Difficulty and no Hit Points) is a bystander: nothing to
+ * fight with, and out of the fight at the first blow.
  * The encounter (the planner's Daggerheart row): the GM's Fear going in (the world's), and how freely the GM spends it.
  * An environment (a raging river, a collapsing bridge) is a hazard: its action features act on GM turns.
  * For the playstyles: a character's gold and stowed gear (to steal, or bargain with), its consumables (a potion to
@@ -117,6 +121,8 @@ function adversaryGold(type, tier, beast, kinds = currency()) {
   return handful * tier * (type === "leader" || type === "solo" ? 2 : 1);
 }
 const typeName = k => systemWord(`DAGGERHEART.CONFIG.AdversaryType.${k}.label`, `Type.${k}`);
+/** A kind of sheet, as the system calls it (Companion, NPC). */
+const actorTypeName = k => systemWord(`TYPES.Actor.${k}`, `ActorType.${k}`);
 
 /** Its Experiences worth a bonus, best first: [{name, value}]. */
 const experiencesOf = sys => Object.values(sys.experiences ?? {}).map(e => ({ name: e.name, value: num(e.value) })).filter(e => e.value > 0).sort((a, b) => b.value - a.value);
@@ -223,14 +229,19 @@ export class DaggerheartAdapter extends SystemAdapter {
   }
 
   canHandle(actor) {
-    return !!actor && ["character", "adversary", "environment"].includes(actor.type);
+    return !!actor && ["character", "adversary", "environment", "companion", "npc"].includes(actor.type);
   }
 
   async toCombatantSpec(tokenDoc) {
     const actor = tokenDoc.actor;
     if ( !this.canHandle(actor) ) return null;
-    if ( actor.type === "environment" ) return this.#environment(tokenDoc, actor);
-    return actor.type === "character" ? this.#character(tokenDoc, actor) : this.#adversary(tokenDoc, actor);
+    switch ( actor.type ) {
+      case "character": return this.#character(tokenDoc, actor);
+      case "environment": return this.#environment(tokenDoc, actor);
+      case "companion": return this.#companion(tokenDoc, actor);
+      case "npc": return this.#npc(tokenDoc, actor);
+      default: return this.#adversary(tokenDoc, actor);
+    }
   }
 
   #character(tokenDoc, actor) {
@@ -294,6 +305,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       name: tokenDoc.name ?? actor.name,
       img: tokenDoc.texture?.src ?? actor.img,
       kind: "pc",
+      actorType: actor.type,
       duality: true,
       level,
       hp: { value: Math.max(0, num(hp.max) - num(hp.value)), max: num(hp.max), temp: 0 },
@@ -399,6 +411,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       name: tokenDoc.name ?? actor.name,
       img: tokenDoc.texture?.src ?? actor.img,
       kind: "npc",
+      actorType: actor.type,
       level: TIER_LEVEL[tier] ?? 1,
       tier,
       adversaryType: type,
@@ -464,6 +477,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       name: tokenDoc.name ?? actor.name,
       img: tokenDoc.texture?.src ?? actor.img,
       kind: "hazard",
+      actorType: actor.type,
       hazard: { once: false },
       untargetable: true,
       level: TIER_LEVEL[tier] ?? 1,
@@ -479,6 +493,102 @@ export class DaggerheartAdapter extends SystemAdapter {
       flags: { fearless: true, mindless: true },
       diesAtZero: false,
       social: { mindless: true, languages: [], pitches: {}, resist: {} },
+      leadership: null
+    };
+  }
+
+  /**
+   * A companion (a Beastbound ranger's), fighting beside its partner: its Evasion, its Experiences, its attack (its
+   * partner's Spellcast to hit, its partner's Proficiency in its damage dice, with what its level-ups made of them). Any
+   * damage marks one of its Stress, whatever the damage (its Stress is its Hit Points here); at its last, it's out of the
+   * fight. Its rolls are its partner's, on the Duality Dice (rules.js).
+   */
+  #companion(tokenDoc, actor) {
+    const sys = actor.system;
+    const r = ranges();
+    const id = tokenDoc.id;
+    const partner = sys.partner ?? null;
+    const stress = sys.resources?.stress ?? {};
+    const max = Math.max(1, num(stress.max));
+    const actions = [];
+    if ( sys.attack ) {
+      // (Its attack as prepared: its partner's Spellcast to hit, the dice and range its level-ups make of it.)
+      const source = plain(sys.attack);
+      const attack = { ...source, range: sys.attack.range, roll: { ...source.roll, bonus: num(sys.attack.roll?.bonus) }, damage: sys.attack.damage };
+      const spec = toActionSpec(attack, { pc: false, proficiency: Math.max(1, num(sys.proficiency)), ranges: r, id: `${id}.attack`, label: attack.name });
+      if ( spec ) actions.push(spec);
+    }
+    const experiences = experiencesOf(sys);
+    const derived = this.deriveTraits(actor);
+    return {
+      id, tokenId: id, actorId: actor.id, actorUuid: actor.uuid,
+      name: tokenDoc.name ?? actor.name,
+      img: tokenDoc.texture?.src ?? actor.img,
+      kind: "companion",
+      actorType: actor.type,
+      companionRoll: true,
+      level: num(partner?.system?.levelData?.level?.current) || num(sys.levelData?.level?.current) || 1,
+      hp: { value: Math.max(0, max - num(stress.value)), max, temp: 0 },
+      defenses: { ac: num(sys.evasion) || 10, ...Object.fromEntries(TRAITS.map(k => [k, 0])) },
+      initiative: { mod: 0 },
+      speeds: { walk: r.close },
+      actions,
+      iwr: { immune: [], resist: {}, weak: {}, dh: { companion: true, thresholds: {}, physical: {}, magical: {}, reduce: {} } },
+      resources: {},
+      experiences,
+      conditionImmune: conditionImmune(sys),
+      conditions: startingConditions(actor),
+      traits: Object.fromEntries(Object.entries(derived.traits).map(([k, v]) => [k, { base: v, fudge: 0 }])),
+      traitReasons: derived.reasons,
+      // (Its partner: the core finds its token on the field, and the companion stands by it.)
+      flags: { ...derived.flags, masterActorId: partner?.id ?? null },
+      diesAtZero: false,
+      perception: experiences[0]?.value ?? 0,
+      creatureKind: actorTypeName("companion"),
+      social: { languages: [], pitches: {}, resist: {} },
+      leadership: null
+    };
+  }
+
+  /**
+   * An NPC: someone the story needs, not a fighter (its sheet has a Difficulty, a description, motives, features, and no
+   * Hit Points). A bystander: nothing to fight with; a blow puts it out of the fight; talking it round, or robbing it,
+   * is against its Difficulty.
+   */
+  #npc(tokenDoc, actor) {
+    const sys = actor.system;
+    const r = ranges();
+    const id = tokenDoc.id;
+    const dc = num(sys.difficulty) || daggerheartRules.typical.dc(1);
+    const derived = this.deriveTraits(actor);
+    const difficulty = systemWord("DAGGERHEART.GENERAL.difficulty", "Difficulty");
+    return {
+      id, tokenId: id, actorId: actor.id, actorUuid: actor.uuid,
+      name: tokenDoc.name ?? actor.name,
+      img: tokenDoc.texture?.src ?? actor.img,
+      kind: "npc",
+      actorType: actor.type,
+      level: 1,
+      hp: { value: 1, max: 1, temp: 0 },
+      defenses: { ac: dc, ...Object.fromEntries(TRAITS.map(k => [k, 0])) },
+      initiative: { mod: 0 },
+      speeds: { walk: r.close },
+      actions: [],
+      iwr: { immune: [], resist: {}, weak: {} },
+      resources: {},
+      traits: Object.fromEntries(Object.entries(derived.traits).map(([k, v]) => [k, { base: v, fudge: 0 }])),
+      traitReasons: derived.reasons,
+      flags: { ...derived.flags },
+      diesAtZero: false,
+      perception: 0,
+      creatureKind: actorTypeName("npc"),
+      social: {
+        pitches: {},
+        resist: Object.fromEntries(["persuade", "intimidate", "deceive", "steal"].map(k => [k, { dc, label: difficulty }])),
+        resolve: 0,
+        languages: ["common"]
+      },
+      valuables: { money: 0, denominations: currency().map(k => ({ label: k.label, value: k.value })), stowed: [], wielded: [] },
       leadership: null
     };
   }
@@ -499,7 +609,8 @@ export class DaggerheartAdapter extends SystemAdapter {
   /**
    * What it would do (auto.js daggerheartTactics), each answer with its reason: a character's by its class's domains,
    * subclass, primary weapon, Armor Slots, potions, the features and cards in its loadout (what they do) and its
-   * community; an adversary's by its type, its standard attack and what its features do. Nothing for an environment.
+   * community; an adversary's by its type, its standard attack and what its features do. Nothing for an environment, a
+   * companion (its partner's call) or an NPC.
    */
   tacticHints(actor, spec) {
     if ( !["character", "adversary"].includes(actor?.type) ) return {};
@@ -564,17 +675,25 @@ export class DaggerheartAdapter extends SystemAdapter {
    * Its biography (auto.js biographyOf): a character's faith and Experiences are about it, its background (what was
    * written, not the class's questions) its story, its connections (about the others) left out; an adversary's
    * description, motives and Experiences are about it, the GM's notes its story; an environment's, its description and
-   * impulses.
+   * impulses; an NPC's, its description and motives; a companion's, its Experiences.
    */
   biography(actor) {
     const sys = actor?.system ?? {};
     if ( actor?.type === "character" ) return biographyOf({ pc: true, bio: sys.biography, experiences: sys.experiences });
-    return biographyOf({ description: sys.description, motives: sys.motivesAndTactics ?? sys.impulses, notes: sys.notes, experiences: sys.experiences });
+    return biographyOf({ description: sys.description, motives: sys.motivesAndTactics ?? sys.impulses ?? sys.motives, notes: sys.notes, experiences: sys.experiences });
   }
 
-  /** Its personality (traits.js): a character from its whole sheet, an adversary from its type, tier and features. */
+  /**
+   * Its personality (traits.js): a character from its whole sheet, an adversary from its type, tier and features, a
+   * companion and an NPC from what they are and their features.
+   */
   deriveTraits(actor) {
-    return deriveDaggerheartTraits(actor.type === "character" ? this.#pcSheet(actor) : this.#adversarySheet(actor));
+    switch ( actor.type ) {
+      case "character": return deriveDaggerheartTraits(this.#pcSheet(actor));
+      case "companion":
+      case "npc": return deriveDaggerheartTraits(this.#otherSheet(actor));
+      default: return deriveDaggerheartTraits(this.#adversarySheet(actor));
+    }
   }
 
   /**
@@ -636,6 +755,17 @@ export class DaggerheartAdapter extends SystemAdapter {
       items: [...(actor.items ?? [])].filter(i => i.type === "feature" && !i.system?.inactive).map(doingOf),
       resistance: plain(sys.resistance) ?? {},
       names: { type: typeName(sys.type), harm: Object.fromEntries(["physicalImmunity", "physicalResistance", "magicalImmunity", "magicalResistance"].map(k => [k, harm(k)])) }
+    };
+  }
+
+  /** What a companion's or an NPC's sheet says (traits.js): what it is, its partner, its features with what they do. */
+  #otherSheet(actor) {
+    const companion = actor.type === "companion";
+    return {
+      pc: false,
+      [companion ? "companion" : "npc"]: true,
+      items: [...(actor.items ?? [])].filter(i => i.type === "feature").map(doingOf),
+      names: { kind: actorTypeName(actor.type), partner: companion ? actor.system?.partner?.name ?? "" : "" }
     };
   }
 

@@ -23,6 +23,8 @@ https://github.com/galaara98/FastFighting-Daggerheart/releases/latest/download/m
 
 - **Characters:** traits, Evasion, damage thresholds, Hit Points, Stress, Hope (and its most, scars and all), Armor Slots, Proficiency and Experiences; the weapons equipped (else an unarmed attack: Proficiency in d4s, Strength or Finesse); the actions on its features (class, subclass, ancestry, community) and on the domain cards in its loadout (not the vault).
 - **Adversaries:** type and tier, Difficulty, thresholds, Hit Points, Stress, Experiences, motives and tactics; the standard attack; the actions of its action features; and its reaction features that harm whoever hurt it (Thorny Armor, Burning, Acid Bath, Warding Sphere ...), each answering a blow that hurts it, once a round, for its Stress where it costs one. A **Minion** falls to any damage, and with **Minion (X)** each X damage fells another of its kind; a **Horde** hits for its lesser damage once it has marked half its Hit Points; a **Solo** with **Relentless (X)** can take the spotlight X times in a GM turn. A Minion's **Group Attack** isn't played yet. Its talk is its best Experience; anything tried on it (a hand in its pocket too) is against its Difficulty.
+- **Companions** (a Beastbound ranger's): Evasion, Experiences and attack (its partner's Spellcast to hit and Proficiency in its dice), fighting beside its partner. Its rolls are its partner's, on the Duality Dice (Hope to the partner, Fear to the GM), and it acts at the end of the round. Any damage marks one of its Stress; at its last, it's out of the fight.
+- **NPCs:** bystanders. Nothing to fight with; a blow puts one out of the fight; talking it round, or robbing it, is against its Difficulty.
 - **Actions,** from their data, never their names: an attack (its trait, or a spellcast with the character's spellcasting trait; an adversary's attack modifier), a reaction roll it forces (a save against the Difficulty), damage without a roll, healing that clears Hit Points, and effects (bonuses to rolls, damage and Evasion; Vulnerable, Hidden, Restrained). Their costs (Hope, Stress, an Armor Slot, the GM's Fear) and uses carry over. Ranges are the system's, in feet, from its **Range Measurement** rule.
 - **Personality:** a character starts as the usual hero, and its whole sheet moves it a little, each part shown in the trait's reason:
   - its traits, against the spread its class suggests (a hero who spread them as its class's guide does moves nothing; a wizard who put its best in Strength is bolder and less of a planner): Knowledge and Instinct make a planner, Strength, Presence and Agility a bold one, Finesse a self-serving one, Presence a loyal one;
@@ -32,7 +34,7 @@ https://github.com/galaara98/FastFighting-Daggerheart/releases/latest/download/m
   - its features and the domain cards in its loadout, by what their actions do: help aimed at its allies, mending others, striking at a cost in its own Hit Points or at its foes' Hope, calling help, a Rally die;
   - its scars (less nerve) and the Stress slots it took on (more), and whether it's in the party (where the world has one).
 
-  An adversary's from its type (a Solo bold and fearless, a Skulk cunning, a Minion faint-hearted) and tier; motives such as feeding or hunting make a beast that fights on instinct and won't talk; then its features, by what they do, and the damage it's immune to or resists (bolder). Leaders: an adversary Leader (then a Solo), a character by its Presence.
+  An adversary's from its type (a Solo bold and fearless, a Skulk cunning, a Minion faint-hearted) and tier; motives such as feeding or hunting make a beast that fights on instinct and won't talk; then its features, by what they do, and the damage it's immune to or resists (bolder). A companion is bonded to its partner (loyal, on instinct), an NPC no fighter (timid), each then moved by its features. Leaders: an adversary Leader (then a Solo), a character by its Presence.
 
 ## How a fight plays
 
@@ -130,6 +132,8 @@ Left to the core: how freely Hope and Stress are spent, what's nearby, and every
 
 - A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), a scar, and how it ended (unconscious from Avoid Death, dead).
 - An adversary: Hit Points and Stress marked; Defeated (or Dead, when one who would kill beat it), its combatant defeated; hidden when it fled.
+- A companion: the Stress it marked; out of the fight as the world's Defeated setting says for companions.
+- An NPC: how it ended (it has nothing to mark).
 - Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
 - The GM's Fear, written to the world.
 
