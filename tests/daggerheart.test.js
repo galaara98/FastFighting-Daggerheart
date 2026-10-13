@@ -216,6 +216,12 @@ describe("personality and leaders", () => {
     expect(deriveDaggerheartTraits({ pc: false, type: "solo", tier: 2 })).toMatchObject({ traits: { brave: 90 }, flags: { fearless: true } });
     expect(isBeast("Burrow, drag away, feed, reposition")).toBe(true);
     expect(isBeast("Bully, command, profit")).toBe(false);
+    // (A mind behind the hunger: a vampire feeds, a demon consumes; and a social, leader or support adversary is never
+    // a mere beast.)
+    expect(isBeast("Charm, deceive, feed")).toBe(false);
+    expect(isBeast("Consume, fuel greed, sow dissent")).toBe(false);
+    expect(isBeast("Devour, hunt, track", "leader")).toBe(false);
+    expect(isBeast("Devour, hunt, track", "bruiser")).toBe(true);
   });
 
   test("a Leader leads; a character by its Presence", () => {

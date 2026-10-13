@@ -42,8 +42,17 @@ const TYPES = Object.freeze({
 /** Motives that make a beast of it: it feeds, hunts, burrows; it doesn't bargain. */
 const BEAST = /\b(?:feed|feeding|hunt|hunting|prey|devour|burrow|graze|nest|swarm|consume|eat)\b/i;
 
-/** Does an adversary's motives (and tactics) say it's a beast? */
-export const isBeast = motives => BEAST.test(String(motives ?? ""));
+/**
+ * Motives that show a mind behind the hunger: it talks, schemes, tempts, obeys, rules (a vampire feeds, a siren lures,
+ * a demon of avarice consumes: none of them is a beast).
+ */
+const MIND = /\b(?:charm|charms|deceive|lie|lies|trick|manipulate|seduce|bargain|negotiate|persuade|command|scheme|plot|rule|preach|curse|enslave|corrupt|tempt|recruit|interrogate|blackmail|bribe|lure|mock|taunt|speak|talk|bewitch|beguile|convert|torment|worship|obey|intimidate|dissent|entice|misdirect|sacrifices?|ranks|greed|exchange|information)\b/i;
+
+/** Adversary types that are never a mere beast: those who talk, lead or support others. */
+const MINDED_TYPES = new Set(["social", "leader", "support"]);
+
+/** Does an adversary's motives (and tactics) say it's a beast? Its type too: a social, leader or support adversary never is. */
+export const isBeast = (motives, type = null) => !MINDED_TYPES.has(type) && BEAST.test(String(motives ?? "")) && !MIND.test(String(motives ?? ""));
 
 /**
  * What each of a character's traits says, for each point it stands above the rest of its spread (and below, the other
@@ -284,7 +293,7 @@ export function deriveDaggerheartTraits(d = {}) {
   const type = d.type ?? "standard";
   const tier = Number(d.tier) || 1;
   const base = TYPES[type] ?? TYPES.standard;
-  const beast = isBeast(d.motives);
+  const beast = isBeast(d.motives, type);
   const start = { ...base, brave: clamp(base.brave + 5 * (tier - 1), 5, 100), tactical: clamp(base.tactical - (beast ? 15 : 0), 5, 100) };
   const kind = d.names?.type ?? type;
   const from = { tactical: beast ? t("Reason.Beast", { kind }) : kind, brave: t("Reason.Tier", { kind, tier }), selfish: kind, loyal: kind };

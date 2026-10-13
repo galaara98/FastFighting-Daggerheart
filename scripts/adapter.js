@@ -357,7 +357,7 @@ export class DaggerheartAdapter extends SystemAdapter {
         if ( spec ) actions.push({ ...spec, feature: true });
       }
     }
-    const beast = isBeast(sys.motivesAndTactics);
+    const beast = isBeast(sys.motivesAndTactics, sys.type);
     const derived = this.deriveTraits(actor);
     const best = Math.max(0, ...Object.values(sys.experiences ?? {}).map(e => num(e.value)));
     const thresholds = sys.damageThresholds ?? {};
@@ -450,7 +450,7 @@ export class DaggerheartAdapter extends SystemAdapter {
   #facts(actor) {
     const pc = actor.type === "character";
     const domains = pc ? [...new Set(actor.items.filter(i => i.type === "class").flatMap(i => [...(i.system.domains ?? [])]))] : [];
-    return { pc, domains, type: pc ? null : actor.system.type ?? null, beast: !pc && isBeast(actor.system.motivesAndTactics) };
+    return { pc, domains, type: pc ? null : actor.system.type ?? null, beast: !pc && isBeast(actor.system.motivesAndTactics, actor.system.type) };
   }
 
   /** The playstyles Daggerheart says fit it (auto.js): a class by its domains, an adversary by its type, a beast. */
