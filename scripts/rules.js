@@ -17,6 +17,7 @@
  * Stress damage marks Stress; Stress it can't mark becomes Hit Points. A Minion falls to any damage; Minion (X): each
  * X damage another of its kind falls with it. A Horde that has marked half its Hit Points or more hits for its lesser
  * damage.
+ * Reactions: only a feature's (an adversary's that answers being hurt, actions.js toReactionSpec), one a round.
  *
  * Death moves (onDropped): a player character whose last Hit Point is marked chooses, as its playstyles lean (else
  * its nerve): Avoid Death (out cold; its Hope die at or under its level, a scar), Risk It All (the Duality Dice: Hope
@@ -245,9 +246,12 @@ export const daggerheartRules = {
   standCost(u) {
     return { move: Math.ceil((u.spec.speeds?.walk ?? 30) / 2) };
   },
-  /** Nobody gets a free strike at a foe that moves off: Daggerheart has none (a feature may say otherwise). */
-  reactions() {
-    return 0;
+  /**
+   * Nobody gets a free strike at a foe that moves off: Daggerheart has none (a feature may say otherwise). A reaction
+   * feature of its own (an adversary's Thorny Armor) answers one thing a round.
+   */
+  reactions(u) {
+    return u?.spec?.reactions?.length ? 1 : 0;
   },
   opportunity() {
     return null;
@@ -284,6 +288,8 @@ export const daggerheartRules = {
    * everyone in turn.
    */
   *roundTurns(run, order) {
+    // (A reaction feature answers one thing each round, spotlit or not: an adversary may wait rounds for the GM.)
+    for ( const u of run.units ) if ( u.spec.reactions?.length ) u.reactionsLeft = daggerheartRules.reactions(u);
     const pcs = order.filter(isPc);
     if ( !pcs.some(u => u.active && u.status === STATUS.STANDING) ) {
       yield* order;

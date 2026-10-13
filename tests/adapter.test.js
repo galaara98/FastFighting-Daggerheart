@@ -1,7 +1,7 @@
 /**
  * The adapter, with stand-ins for the system's actors: a character (its traits, gold, a potion, loot, the trait moves,
- * Help an Ally, sizing up, tending, theft, doors; who it is, from its whole sheet), an adversary's personality, an
- * environment (a hazard), and Sprint in a fight.
+ * Help an Ally, sizing up, tending, theft, doors; who it is, from its whole sheet), an adversary (its personality, its
+ * reactions), an environment (a hazard), and Sprint in a fight.
  */
 import { describe, expect, test } from "vitest";
 import { DaggerheartAdapter } from "../scripts/adapter.js";
@@ -118,6 +118,31 @@ describe("who it is, from its whole sheet", () => {
     const spec = await adapter.toCombatantSpec(tokenOf(ghost));
     expect(spec.traits.brave.base).toBe(56);
     expect(adapter.biography(ghost)).toEqual({ about: "A restless spirit. Haunt, wail", story: "", against: "" });
+  });
+});
+
+describe("an adversary", () => {
+  const harm = (dice, bonus, extra = {}) => ({ main: { type: ["physical"], applyTo: "hitPoints", includeBase: false, value: { dice, bonus, multiplier: "flat", flatMultiplier: 1 }, ...extra } });
+  const feature = (id, name, form, actions) => ({ id, type: "feature", name, system: { featureForm: form, actions }, effects: [] });
+  const treant = () => ({ id: "x1", uuid: "Actor.x1", name: "Thornwood Treant", type: "adversary", img: "", statuses: new Set(),
+    items: [
+      feature("f1", "Thorny Armor", "reaction", [{ _id: "r1", type: "damage", range: "melee", target: { type: "any" }, cost: [{ key: "stress", value: 1 }], damage: harm("d10", 5) }]),
+      // (A standard attack back, damage on its own hit, one paid in Fear, one a countdown sets off: not played.)
+      feature("f2", "Retaliate", "reaction", [{ _id: "r2", type: "attack", range: "veryClose", roll: { type: "attack" }, target: { type: "any", amount: 1 }, cost: [], damage: harm("d6", 0, { includeBase: true }) }]),
+      feature("f3", "Brutal", "reaction", [{ _id: "r3", type: "damage", target: { type: "any" }, cost: [{ key: "stress", value: 1 }], damage: harm("d6", 0, { includeBase: true }) }]),
+      feature("f4", "Crushing Bite", "reaction", [{ _id: "r4", type: "damage", target: { type: "any" }, cost: [{ key: "fear", value: 1 }], damage: harm("d12", 0) }]),
+      feature("f5", "Rot", "reaction", [{ _id: "r5", type: "countdown", cost: [] }, { _id: "r6", type: "damage", range: "close", target: { type: "any" }, cost: [], damage: harm("d8", 0) }]),
+      // (A passive feature: on its sheet already.)
+      feature("f6", "Bark Skin", "passive", [{ _id: "p1", type: "damage", target: { type: "any" }, cost: [], damage: harm("d6", 0) }])
+    ],
+    system: { type: "bruiser", tier: 1, difficulty: 13, motivesAndTactics: "Guard the grove", experiences: { a: { name: "Forest Lore", value: 2 }, b: { name: "Intimidation", value: 3 } },
+      resistance: { physical: { resistance: true }, magical: {} }, resources: { hitPoints: { max: 7, value: 0 }, stress: { max: 3, value: 0 } }, damageThresholds: { major: 9, severe: 16 },
+      attack: { ...dagger, name: "Branch", roll: { type: "attack", bonus: 2 } } } });
+
+  test("its reaction features that harm whoever hurt it are reactions; the rest aren't played", async () => {
+    const spec = await new DaggerheartAdapter().toCombatantSpec(tokenOf(treant()));
+    expect(spec.reactions).toEqual([{ id: "t-x1.f1.r1", label: "Thorny Armor", on: "damaged", damage: [parseFormula("1d10+5", "physical")], resource: "stress", amount: 1, range: 5 }]);
+    expect(spec.actions.map(a => a.name)).toEqual(["Branch"]);
   });
 });
 

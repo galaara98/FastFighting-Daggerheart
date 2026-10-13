@@ -10,8 +10,9 @@
  *    Vulnerable, Hidden and Restrained), on itself, a friend or a foe.
  * A spellcast attack is a spell attack (its caster counts as one). Its cost (Hope, Stress, Fear, an Armor Slot; the first
  * of them) and its uses carry over. Ranges are the system's
- * (Melee, Very Close, Close, Far, Very Far), in feet. Other kinds of action (summons, countdowns, macros, beastforms)
- * aren't played.
+ * (Melee, Very Close, Close, Far, Very Far), in feet. An adversary's reaction feature that harms whoever hurt it is one
+ * of the engine's reactions (toReactionSpec). Other kinds of action (summons, countdowns, macros, beastforms) aren't
+ * played.
  * Pure: no Foundry globals.
  */
 import { part, parseFormula } from "./core.js";
@@ -176,6 +177,39 @@ export function toActionSpec(action, ctx) {
     default:
       return null;
   }
+}
+
+/**
+ * A reaction feature's action as one of the engine's reactions (the core's responses.js), or null when it isn't one
+ * the engine plays. When it goes off is in the feature's words, which this module doesn't read; what it does is in its
+ * data. One that harms others on its own (damage of its own, or a reaction roll it forces with damage; not damage added
+ * to its standard attack's) answers being hurt (on "damaged"): it strikes whoever hurt it, within its range (or its
+ * area's), and a reaction roll avoids it when it calls for one. The SRD's are all of that kind (Thorny Armor, Burning,
+ * Acid Bath, Lava Splash, Warding Sphere ...). Paid in its own Stress, or nothing; its uses carry over.
+ * Not played: a standard attack back (the engine strikes back only at a miss, or for a friend), one paid in Fear (the
+ * GM's, which an engine reaction can't draw on), more damage on its own hit (a bonus on its attack, not an answer),
+ * what it does to itself (clearing Stress, a blow halved: its data doesn't say which), Fear it gains the GM.
+ * @param {object} action   the system's action data
+ * @param {object} ctx      {id, label, difficulty (its Difficulty, for the reaction roll), ranges}
+ */
+export function toReactionSpec(action, ctx) {
+  if ( !action || action.target?.type === "self" ) return null;
+  const main = action.damage?.main ?? action.damage?.parts?.hitPoints ?? null;
+  if ( !main || main.includeBase ) return null;
+  const save = action.save?.trait ? { type: action.save.trait, dc: num(action.save.difficulty) || ctx.difficulty || 12, half: action.save.damageMod === "half", basic: action.save.damageMod === "half" } : null;
+  if ( action.type === "attack" ? !save : action.type !== "damage" ) return null;
+  const damage = damagePartsOf(action.damage).filter(p => p.flat > 0 || p.dice.some(d => d.n > 0 && d.faces > 0));
+  if ( !damage.length ) return null;
+  const cost = costOfAction(action);
+  if ( cost.resource && cost.resource !== "stress" ) return null;
+  const ranges = ctx.ranges ?? RANGES;
+  const range = ranges[action.range] ?? ranges[list(action.areas)[0]?.size];
+  const uses = num(action.uses?.max);
+  return {
+    id: ctx.id, label: ctx.label ?? action.name ?? "", on: "damaged", damage,
+    ...(save ? { save } : {}), ...(cost.resource ? { resource: cost.resource, amount: cost.resourceCost } : {}),
+    ...(Number.isFinite(range) ? { range } : {}), ...(uses > 0 ? { uses } : {})
+  };
 }
 
 /**

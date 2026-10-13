@@ -5,7 +5,7 @@
 import { describe, expect, test } from "vitest";
 import { dualityChances, d20Chances, rollDuality, rollD20, DUALITY } from "../scripts/dice.js";
 import { daggerheartRules, marksFor, deathMoveOf, FEAR_MAX } from "../scripts/rules.js";
-import { toActionSpec, damagePartsOf, costOfAction, effectOf, RANGES } from "../scripts/actions.js";
+import { toActionSpec, toReactionSpec, damagePartsOf, costOfAction, effectOf, RANGES } from "../scripts/actions.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast } from "../scripts/traits.js";
 import { replay } from "../../FastFighting/scripts/engine/simulator.js";
 import { parseFormula, STATUS } from "../scripts/core.js";
@@ -216,6 +216,34 @@ describe("the system's actions", () => {
     expect(damagePartsOf(fixedHarm(null))).toEqual([parseFormula("4", "physical")]);
     expect(damagePartsOf(fixedHarm(2))).toEqual([parseFormula("2d6+4", "physical")]);
   });
+
+  describe("a reaction feature's action", () => {
+    const harm = (dice, bonus, extra = {}) => ({ main: { type: ["physical"], applyTo: "hitPoints", includeBase: false, value: { dice, bonus, multiplier: "flat", flatMultiplier: 1 }, ...extra } });
+    const ctx = { id: "r", label: "Thorny Armor", difficulty: 14, ranges: RANGES };
+
+    test("damage of its own answers being hurt: at whoever hurt it, within its range (or its area's), for its Stress, as often as it may", () => {
+      const thorns = { type: "damage", range: "melee", target: { type: "any" }, cost: [{ key: "stress", value: 1 }], damage: harm("d10", 5) };
+      expect(toReactionSpec(thorns, ctx)).toEqual({ id: "r", label: "Thorny Armor", on: "damaged", damage: [parseFormula("1d10+5", "physical")], resource: "stress", amount: 1, range: 5 });
+      const splash = { type: "damage", range: "", areas: [{ size: "veryClose" }], target: { type: "any" }, cost: [], uses: { max: "1" }, damage: harm("d6", 0) };
+      expect(toReactionSpec(splash, ctx)).toMatchObject({ on: "damaged", range: 15, uses: 1 });
+      expect(toReactionSpec(splash, ctx).resource).toBeUndefined();
+    });
+
+    test("a reaction roll it forces with damage: avoided on a success against its Difficulty", () => {
+      const quake = { type: "attack", range: "close", target: { type: "any" }, cost: [], save: { trait: "agility", difficulty: null, damageMod: "none" }, damage: harm("d8", 1) };
+      expect(toReactionSpec(quake, ctx)).toMatchObject({ on: "damaged", save: { type: "agility", dc: 14 }, range: 30 });
+    });
+
+    test("not played: a standard attack back, damage on its own hit, one paid in Fear, one on itself, one without damage", () => {
+      const strikeBack = { type: "attack", range: "veryClose", target: { type: "any", amount: 1 }, roll: { type: "attack" }, cost: [{ key: "stress", value: 1 }], damage: harm("d6", 0, { includeBase: true }) };
+      const brutal = { type: "damage", target: { type: "any" }, cost: [{ key: "stress", value: 1 }], damage: harm("d6", 0, { includeBase: true }) };
+      const bite = { type: "damage", target: { type: "any" }, cost: [{ key: "fear", value: 1 }], damage: harm("d12", 0) };
+      const self = { type: "damage", target: { type: "self" }, cost: [], damage: harm("d6", 0) };
+      const gainFear = { type: "healing", target: { type: "self" }, cost: [], damage: { resources: { fear: { applyTo: "fear" } } } };
+      const lick = { type: "damage", target: { type: "any" }, cost: [], damage: { main: null, resources: { stress: { applyTo: "stress" } } } };
+      for ( const a of [strikeBack, brutal, bite, self, gainFear, lick, null] ) expect(toReactionSpec(a, ctx)).toBe(null);
+    });
+  });
 });
 
 describe("personality and leaders", () => {
@@ -270,6 +298,24 @@ describe("a fight", () => {
     expect(gmTurns).toBeGreaterThan(0);
     expect(fearNotes).toBeGreaterThan(0);
     expect(decided).toBeGreaterThan(15);
+  });
+
+  test("a reaction feature answers the blows that hurt it, once a round, for its Stress; nobody else reacts", () => {
+    expect(daggerheartRules.reactions({ spec: {} })).toBe(0);
+    const thorny = id => ({ ...bandit(id), reactions: [{ id: `${id}.thorns`, label: "Thorny Armor", on: "damaged", damage: [parseFormula("1d10+5", "physical")], resource: "stress", amount: 1, range: 5 }] });
+    expect(daggerheartRules.reactions({ spec: thorny("B1") })).toBe(1);
+    let answered = 0;
+    let stressSpent = 0;
+    for ( let seed = 1; seed <= 10; seed++ ) {
+      const r = replay(battle([hero("Brakka"), thorny("B1")], { system: { fear: 0 } }), daggerheartRules, seed);
+      const thorns = r.log.filter(e => e.type === "reaction" && e.reaction === "Thorny Armor");
+      answered += thorns.length;
+      expect(thorns.every(e => e.trigger === "damaged" && e.target === "Brakka")).toBe(true);
+      expect(new Set(thorns.map(e => e.round)).size).toBe(thorns.length);
+      stressSpent += 3 - (r.units.B1.final?.system?.stress ?? r.units.B1.resources?.stress ?? 3);
+    }
+    expect(answered).toBeGreaterThan(0);
+    expect(stressSpent).toBeGreaterThan(0);
   });
 
   test("adversaries act only on GM turns: never more often than the party's failures and Fear allow", () => {

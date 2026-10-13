@@ -6,9 +6,10 @@
  * Experiences; the weapons it has equipped (else unarmed: its Proficiency in d4s), and the actions on its features and
  * the domain cards in its loadout. It rolls the Duality Dice.
  * An adversary: its type and tier, Difficulty, thresholds, Hit Points, Stress, its standard attack (a Horde's lesser one
- * once it has marked half its Hit Points), and the actions of its action features (a Fear feature costs the GM a Fear).
- * A Minion falls to any damage (Minion (X): each X damage another of its kind falls too); a Solo with Relentless (X) can
- * be spotlit X times a GM turn. It rolls a d20.
+ * once it has marked half its Hit Points), the actions of its action features (a Fear feature costs the GM a Fear), and
+ * its reaction features that harm whoever hurt it (actions.js toReactionSpec). A Minion falls to any damage (Minion
+ * (X): each X damage another of its kind falls too); a Solo with Relentless (X) can be spotlit X times a GM turn. It
+ * rolls a d20.
  * The encounter (the planner's Daggerheart row): the GM's Fear going in (the world's), and how freely the GM spends it.
  * An environment (a raging river, a collapsing bridge) is a hazard: its action features act on GM turns.
  * For the playstyles: a character's gold and stowed gear (to steal, or bargain with), its consumables (a potion to
@@ -23,7 +24,7 @@
  */
 import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, traitMoves, helpAnAlly, mendsOthers, RANGES } from "./actions.js";
+import { toActionSpec, toReactionSpec, traitMoves, helpAnAlly, mendsOthers, RANGES } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -346,8 +347,21 @@ export class DaggerheartAdapter extends SystemAdapter {
         if ( spec ) actions.push(spec);
       }
     }
+    const reactions = [];
     for ( const item of features ) {
-      if ( item.system.featureForm !== "action" ) continue;
+      const form = item.system.featureForm;
+      // (A passive feature is on its sheet already, its effects in its numbers; what its actions do comes about as its
+      // words say, which the engine can't tell. A reaction feature counting down to something isn't an answer to a blow.)
+      if ( form === "reaction" ) {
+        const all = [...(item.system.actions ?? [])].map(plain);
+        if ( all.some(a => a.type === "countdown") ) continue;
+        for ( const data of all ) {
+          const spec = toReactionSpec(data, { id: `${id}.${item.id}.${data._id}`, label: item.name, difficulty: common.difficulty, ranges: r });
+          if ( spec ) reactions.push(spec);
+        }
+        continue;
+      }
+      if ( form !== "action" ) continue;
       for ( const a of item.system.actions ?? [] ) {
         const data = plain(a);
         // (A Minion's Group Attack, many as one for a Fear, isn't played: each one attacks on its own.)
@@ -380,6 +394,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       // (Farther than Close, up to Very Far: a separate action.)
       sprint: { range: r.veryFar },
       actions,
+      reactions: reactions.length ? reactions : undefined,
       iwr: { ...harmOf(sys, { thresholds: type === "minion" ? { major: 0, severe: 0 } : thresholds, minion }), weak: weakSpot(sys) },
       resources: { stress: Math.max(0, num(stress.max) - num(stress.value)) },
       stressMax: num(stress.max),
@@ -415,6 +430,7 @@ export class DaggerheartAdapter extends SystemAdapter {
     const common = { pc: false, attackBonus: 0, difficulty: num(sys.difficulty), ranges: r };
     const actions = [];
     for ( const item of actor.items ) {
+      // (Its reaction features answer what the party does there, which the engine doesn't play: nobody hurts a place.)
       if ( item.type !== "feature" || item.system.featureForm !== "action" ) continue;
       for ( const a of item.system.actions ?? [] ) {
         const data = plain(a);

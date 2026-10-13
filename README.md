@@ -22,7 +22,7 @@ https://github.com/galaara98/FastFighting-Daggerheart/releases/latest/download/m
 ## What it reads
 
 - **Characters:** traits, Evasion, damage thresholds, Hit Points, Stress, Hope (and its most, scars and all), Armor Slots, Proficiency and Experiences; the weapons equipped (else an unarmed attack: Proficiency in d4s, Strength or Finesse); the actions on its features (class, subclass, ancestry, community) and on the domain cards in its loadout (not the vault).
-- **Adversaries:** type and tier, Difficulty, thresholds, Hit Points, Stress, Experiences, motives and tactics; the standard attack; and the actions of its action features (reactions and passives aren't played yet). A **Minion** falls to any damage, and with **Minion (X)** each X damage fells another of its kind; a **Horde** hits for its lesser damage once it has marked half its Hit Points; a **Solo** with **Relentless (X)** can take the spotlight X times in a GM turn. A Minion's **Group Attack** isn't played yet.
+- **Adversaries:** type and tier, Difficulty, thresholds, Hit Points, Stress, Experiences, motives and tactics; the standard attack; the actions of its action features; and its reaction features that harm whoever hurt it (Thorny Armor, Burning, Acid Bath, Warding Sphere ...), each answering a blow that hurts it, once a round, for its Stress where it costs one. A **Minion** falls to any damage, and with **Minion (X)** each X damage fells another of its kind; a **Horde** hits for its lesser damage once it has marked half its Hit Points; a **Solo** with **Relentless (X)** can take the spotlight X times in a GM turn. A Minion's **Group Attack** isn't played yet.
 - **Actions,** from their data, never their names: an attack (its trait, or a spellcast with the character's spellcasting trait; an adversary's attack modifier), a reaction roll it forces (a save against the Difficulty), damage without a roll, healing that clears Hit Points, and effects (bonuses to rolls, damage and Evasion; Vulnerable, Hidden, Restrained). Their costs (Hope, Stress, an Armor Slot, the GM's Fear) and uses carry over. Ranges are the system's, in feet, from its **Range Measurement** rule.
 - **Personality:** a character starts as the usual hero, and its whole sheet moves it a little, each part shown in the trait's reason:
   - its traits, against the spread its class suggests (a hero who spread them as its class's guide does moves nothing; a wizard who put its best in Strength is bolder and less of a planner): Knowledge and Instinct make a planner, Strength, Presence and Agility a bold one, Finesse a self-serving one, Presence a loyal one;
@@ -137,7 +137,7 @@ Undo puts it all back.
 
 ## Not yet played
 
-Tag Team rolls, adversary reactions and passives, a Minion's Group Attack, an adversary's Experiences (a Fear each), countdowns, summons and beastforms.
+Tag Team rolls, adversary passives, adversary reactions that strike back with a standard attack, cost the GM a Fear, add to its own hit or count down, a Minion's Group Attack, an adversary's Experiences (a Fear each), countdowns, summons and beastforms.
 
 ## Development
 
