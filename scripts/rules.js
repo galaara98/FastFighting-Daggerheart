@@ -201,6 +201,13 @@ function* gmTurn(run, order) {
   }
 }
 
+/** The first of `list` after `from` in the fight's order, round again to the first. */
+function nextIn(list, from, order) {
+  if ( !list.length ) return null;
+  const at = from ? order.indexOf(from) : -1;
+  return list.find(u => order.indexOf(u) > at) ?? list[0];
+}
+
 export const daggerheartRules = {
   id: "daggerheart",
 
@@ -312,6 +319,26 @@ export const daggerheartRules = {
     // (Friends of the party who aren't player characters, and anyone not in the fight yet: at the end of the round.)
     const party = new Set(pcs.map(u => u.side));
     for ( const u of [...order] ) if ( !isPc(u) && (party.has(u.side) || !u.active) ) yield u;
+  },
+
+  /**
+   * A live battle's next spotlight, as the GM would likely give it (FastFighting suggests it, and gives it when it plays
+   * everyone): after a player character whose roll failed or went with Fear, the adversary that has waited longest;
+   * otherwise the next player character in turn after the last to have it. With no player character able to act, the
+   * next one in turn. `up`: each one's last turn, by turn number.
+   */
+  nextSpotlight(run, { last = null, up = {} } = {}) {
+    const order = run.order;
+    const able = u => u.active && u.status === STATUS.STANDING;
+    const pcs = order.filter(u => isPc(u) && able(u));
+    if ( !pcs.length ) return nextIn(order.filter(able), last, order);
+    if ( last && isPc(last) && last.handoff ) {
+      const waited = u => up[u.id] ?? -1;
+      const gm = gmUnits(run, order).reduce((best, u) => (!best || waited(u) < waited(best) ? u : best), null);
+      if ( gm ) return gm;
+    }
+    const lastPc = order.filter(isPc).reduce((best, u) => ((up[u.id] ?? -1) > (best ? up[best.id] ?? -1 : -1) ? u : best), null);
+    return nextIn(pcs, lastPc, order);
   },
 
   /* Rolls ----------------------------------------------------------------- */

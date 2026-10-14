@@ -11,6 +11,7 @@
  *     tokenUpdate, createdActors, createdTokens, deletedTokens, statuses: [{id, active}], combatant, setting }
  */
 import { STATUS } from "./core.js";
+import { FEAR_MAX } from "./rules.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
@@ -192,6 +193,91 @@ export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = 
     await tokenDoc.update({ hidden: true });
   }
   return undo;
+}
+
+/**
+ * A live battle: one turn's changes (the core's engine/changes.js) written onto a token. Hit Points and Stress marked,
+ * Hope, as the turn left them; Armor Slots marked, consumables used and a scar, by what this turn changed
+ * (options.before); and how it ended up: out cold, dead, defeated, gone.
+ * @returns {Promise<object>} an undo record (as commitDaggerheartOutcome's)
+ */
+export async function commitDaggerheartChanges(tokenDoc, spec, changes, final, options = {}) {
+  const actor = tokenDoc.actor;
+  const undo = emptyRecord(tokenDoc, actor);
+  const s = final.system ?? {};
+  const was = options.before?.system ?? {};
+  const update = {};
+  const set = (path, value) => {
+    const before = foundry.utils.getProperty(actor, path);
+    if ( before === value ) return;
+    update[path] = value;
+    undo.actorUpdate[path] = before ?? 0;
+  };
+  const track = harmTrack(spec);
+  if ( track && changes.hp ) set(`system.resources.${track}.value`, hpMarked(spec, changes.hp.to));
+  if ( Number.isFinite(s.stress) && s.stress !== was.stress ) set("system.resources.stress.value", stressMarked(spec, s.stress));
+  if ( spec.duality ) {
+    if ( Number.isFinite(s.hope) && s.hope !== was.hope ) set("system.resources.hope.value", s.hope);
+    if ( s.scarred && !was.scarred ) set("system.scars", (Number(actor.system.scars) || 0) + 1);
+    // Consumables used this turn.
+    for ( const [key, left] of Object.entries(s.items ?? {}) ) {
+      const item = actor.items.get(key.slice("item:".length));
+      const used = (was.items?.[key] ?? left) - left;
+      if ( !item || !(used > 0) ) continue;
+      const before = Number(item.system.quantity) || 0;
+      undo.itemUpdates.push({ id: item.id, update: { "system.quantity": before } });
+      await item.update({ "system.quantity": Math.max(0, before - used) });
+    }
+    // Armor Slots marked this turn: on the armor it wears.
+    const marked = (s.armorMarked ?? 0) - (was.armorMarked ?? 0);
+    const armor = actor.system.armor ?? actor.items.find(i => i.type === "armor" && i.system.equipped);
+    if ( armor && marked > 0 ) {
+      const before = Number(armor.system.armor?.current) || 0;
+      const after = Math.min(Number(armor.system.armor?.max) || 0, before + marked);
+      if ( after !== before ) {
+        undo.itemUpdates.push({ id: armor.id, update: { "system.armor.current": before } });
+        await armor.update({ "system.armor.current": after });
+      }
+    }
+  }
+  // (The Hit Points first: the system's own Defeated automation reacts to them, and its status is then settled.)
+  if ( Object.keys(update).length ) await actor.update(update);
+  if ( changes.status ) {
+    const to = changes.status.to;
+    const want = to === STATUS.DEAD ? "dead" : to === STATUS.BEATEN ? beatenStatus(spec.actorType) : to === STATUS.DOWN ? "unconscious" : null;
+    if ( want || changes.revived ) await settleDefeat(actor, want, undo);
+    if ( !spec.duality && [STATUS.DEAD, STATUS.BEATEN, STATUS.DOWN].includes(to) ) {
+      const combatant = game.combat?.getCombatantsByToken?.(tokenDoc)?.[0];
+      if ( combatant && !combatant.defeated ) {
+        await combatant.update({ defeated: true });
+        undo.combatant = { uuid: combatant.uuid, defeated: false };
+      }
+    } else if ( to === STATUS.FLED && options.fledMode !== "leave" && !spec.duality ) {
+      undo.tokenUpdate = { hidden: tokenDoc.hidden };
+      await tokenDoc.update({ hidden: true });
+    }
+  }
+  return undo;
+}
+
+/**
+ * A live turn's change to the GM's Fear (the world's), written by how much it moved: spent on an adversary's feature,
+ * or gained from a simulated character's roll with Fear. Returns undo records.
+ */
+export async function commitFearTurn(before, after) {
+  const fearOf = units => Object.values(units ?? {}).find(u => Number.isFinite(u?.system?.fear))?.system.fear;
+  const was = fearOf(before);
+  const now = fearOf(after);
+  if ( !Number.isFinite(was) || !Number.isFinite(now) || was === now ) return [];
+  let current = null;
+  try {
+    current = Number(game.settings.get(SYSTEM, "ResourcesFear"));
+  } catch ( err ) {
+    return [];
+  }
+  const fear = Math.max(0, Math.min(FEAR_MAX, (Number.isFinite(current) ? current : was) + now - was));
+  await game.settings.set(SYSTEM, "ResourcesFear", fear);
+  return [{ ...emptyRecord(null, null), setting: { namespace: SYSTEM, key: "ResourcesFear", value: current } }];
 }
 
 /** Gold as the world's currency has it, from an amount in its smallest coin: {chests, bags, handfuls, coins}. */

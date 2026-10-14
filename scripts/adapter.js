@@ -33,7 +33,8 @@ import { toActionSpec, toReactionSpec, traitMoves, helpAnAlly, mendsOthers, RANG
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
-import { commitDaggerheartOutcome, describeDaggerheartOutcome, describeFear, commitFear, commitDaggerheartConcession } from "./commit.js";
+import { commitDaggerheartOutcome, commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitFear, commitDaggerheartConcession } from "./commit.js";
+import { readDaggerheartTurn } from "./read-turn.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
@@ -830,6 +831,48 @@ export class DaggerheartAdapter extends SystemAdapter {
 
   async commitOutcome(tokenDoc, spec, final, options) {
     return commitDaggerheartOutcome(tokenDoc, spec, final, options);
+  }
+
+  get supportsLive() {
+    return true;
+  }
+
+  /** No initiative: whoever the GM spotlights acts. */
+  get liveTurns() {
+    return "spotlight";
+  }
+
+  /**
+   * The spotlight given (or handed back) as the daggerheart tracker gives it: its countdowns, action tokens and effects
+   * that last until one's next action go with it.
+   */
+  async giveSpotlight(combat, combatant) {
+    const tracker = ui.combat;
+    if ( tracker?.viewed === combat ) {
+      if ( !combatant ) return combat.turn === null ? null : (tracker.clearTurn ? tracker.clearTurn() : combat.update({ turn: null }));
+      if ( tracker.setCombatantSpotlight && combat.combatant?.id !== combatant.id ) return tracker.setCombatantSpotlight(combatant.id);
+    }
+    return super.giveSpotlight(combat, combatant);
+  }
+
+  /** The GM's Fear, as the world holds it now. */
+  livePools() {
+    return { fear: fearNow() };
+  }
+
+  /** A live battle: one turn's changes (commit.js commitDaggerheartChanges). */
+  async commitChanges(tokenDoc, spec, changes, final, options) {
+    return commitDaggerheartChanges(tokenDoc, spec, changes, final, options);
+  }
+
+  /** What a live turn did to the GM's Fear. */
+  async commitTurn(before, after) {
+    return commitFearTurn(before, after);
+  }
+
+  /** A player character's spotlight, read from the daggerheart system's cards (read-turn.js). */
+  readTurn(messages, context) {
+    return readDaggerheartTurn(messages, context);
   }
 
   /** Gold or an item, handed over (a deal, a demand, a theft). */
