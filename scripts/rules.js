@@ -603,5 +603,10 @@ export const daggerheartRules = {
 
   storyDamageType(type) {
     return type === "magical" ? "force" : type === "physical" ? "slashing" : type;
+  },
+
+  /** Daggerheart's Restrained: it can't move, but it can still act (the story's immobilized, not pinned and helpless). */
+  storyCondition(key) {
+    return key === "restrained" ? "immobilized" : null;
   }
 };
