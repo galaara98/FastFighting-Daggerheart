@@ -22,6 +22,16 @@ function dualityOf(roll) {
   return { hope, fear };
 }
 
+/** The name of the item a card came from ({actor: uuid, item: id}), where it's at hand. */
+function itemName(source) {
+  if ( !source?.actor || !source.item || typeof globalThis.fromUuidSync !== "function" ) return null;
+  try {
+    return globalThis.fromUuidSync(source.actor)?.items?.get?.(source.item)?.name ?? null;
+  } catch ( err ) {
+    return null;
+  }
+}
+
 /** A roll's damage, as its card holds it (rolled with it, or rolled later on the same card). */
 function damageOf(m) {
   const main = m.system?.damage?.main;
@@ -42,7 +52,8 @@ export function readDaggerheartTurn(messages, { tokenId, actorId = null, ids = {
     if ( !mine(m) || !["dualityRoll", "adversaryRoll", "damageRoll"].includes(m.type) ) continue;
     const sys = m.system ?? {};
     const roll = sys.roll ?? m.rolls?.[0] ?? null;
-    const action = sys.title ?? "";
+    // (By the item it came from, "Longsword", rather than the card's title, "Longsword - Attack".)
+    const action = itemName(sys.source) ?? sys.title ?? "";
     if ( m.type === "damageRoll" || !sys.hasRoll ) {
       // (Damage or healing on its own card: the last hit with no damage yet, or a heal.)
       const amount = damageOf(m) ?? (Number(roll?.total) || 0);
