@@ -1,7 +1,7 @@
 /**
  * Every playstyle perk with an effect in Daggerheart: the tactics that say how freely Hope and Armor Slots go, adversaries
  * defeated (and killed by those who would), a character struck while out cold, tending it, sizing a foe up, the trait
- * moves (Grapple, Maneuver, Hide), Help an Ally, gold and gear, weak spots.
+ * moves (Grapple, Shove, Maneuver, Hide), Help an Ally, gold and gear, weak spots.
  */
 import { describe, expect, test } from "vitest";
 import { daggerheartRules } from "../scripts/rules.js";
@@ -75,12 +75,14 @@ describe("falling", () => {
 });
 
 describe("what a character can do", () => {
-  test("the trait moves: Grapple (Strength) restrains, Maneuver (Agility) leaves it Vulnerable, Hide (Finesse) hides it", () => {
-    const [grapple, maneuver, hide] = traitMoves({ id: "w", traits: { strength: 1, agility: 2, finesse: 0 }, ranges: RANGES });
+  test("the trait moves: Grapple (Strength) holds, Maneuver (Agility) leaves it Vulnerable, Hide (Finesse) hides it, Shove (Strength) pushes", () => {
+    const [grapple, maneuver, hide, shove] = traitMoves({ id: "w", traits: { strength: 1, agility: 2, finesse: 0 }, ranges: RANGES });
     expect(grapple).toMatchObject({ kind: "control", check: { mod: 1, against: "ac" }, melee: true });
-    expect(grapple.onHit[2].conditions).toEqual({ restrained: 1, immobilized: 1 });
+    expect(grapple.onHit[2]).toEqual({ grab: true });
+    expect(grapple.onHit[3].conditions).toEqual({ restrained: 1, immobilized: 1 });
     expect(maneuver.onHit[2].conditions).toEqual({ vulnerable: 1 });
     expect(hide).toMatchObject({ kind: "buff", targets: "self", check: { mod: 0, dc: 12 } });
+    expect(shove).toMatchObject({ kind: "control", check: { mod: 1, against: "ac" }, melee: true, onHit: [null, null, { move: { kind: "push" } }, { move: { kind: "push" } }] });
   });
 
   test("Help an Ally: a Hope for a d6 on a friend's next action roll, no spotlight of its own, never itself", () => {

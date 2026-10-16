@@ -43,7 +43,7 @@ describe("a character", () => {
   test("what it can do: its weapon, its potion (a drink of its own), the trait moves, Help an Ally", async () => {
     const spec = await new DaggerheartAdapter().toCombatantSpec(tokenOf(character()));
     const kinds = spec.actions.map(a => a.traitMove ?? a.kind);
-    expect(kinds).toEqual(["strike", "heal", "grapple", "maneuver", "hide", "buff"]);
+    expect(kinds).toEqual(["strike", "heal", "grapple", "maneuver", "hide", "shove", "buff"]);
     expect(spec.actions[1]).toMatchObject({ resource: "item:p1", selfOnly: true, consumable: true });
   });
 

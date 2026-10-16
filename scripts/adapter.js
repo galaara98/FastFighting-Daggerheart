@@ -6,10 +6,11 @@
  * Experiences; the weapons it has equipped (else unarmed: its Proficiency in d4s), and the actions on its features and
  * the domain cards in its loadout. It rolls the Duality Dice.
  * An adversary: its type and tier, Difficulty, thresholds, Hit Points, Stress, its standard attack (a Horde's lesser one
- * once it has marked half its Hit Points), the actions of its action features (a Fear feature costs the GM a Fear), and
- * its reaction features that harm whoever hurt it (actions.js toReactionSpec). A Minion falls to any damage (Minion
- * (X): each X damage another of its kind falls too); a Solo with Relentless (X) can be spotlit X times a GM turn. It
- * rolls a d20.
+ * once it has marked half its Hit Points), the actions of its action features (a Fear feature costs the GM a Fear; one
+ * of the SRD's that knocks a foe back, pulls it in, knocks it over or seizes it is a maneuver: actions.js featureMove),
+ * and its reaction features that harm whoever hurt it (actions.js toReactionSpec). A Minion falls to any damage
+ * (Minion (X): each X damage another of its kind falls too); a Solo with Relentless (X) can be spotlit X times a GM
+ * turn. It rolls a d20.
  * A companion (a Beastbound ranger's): its Evasion, Experiences and attack (its partner's Spellcast and Proficiency),
  * fighting beside its partner; any damage marks one of its Stress, and at its last it's out of the fight. Its rolls are
  * its partner's: the Duality Dice. An NPC (a sheet with a Difficulty and no Hit Points) is a bystander: nothing to
@@ -17,9 +18,9 @@
  * The encounter (the planner's Daggerheart row): the GM's Fear going in (the world's), and how freely the GM spends it.
  * An environment (a raging river, a collapsing bridge) is a hazard: its action features act on GM turns.
  * For the playstyles: a character's gold and stowed gear (to steal, or bargain with), its consumables (a potion to
- * drink), the trait moves anyone can make (Grapple, Maneuver, Hide), Help an Ally, sizing a foe up (Analyze or Perceive),
- * tending a friend out cold, doors (Smash, Tinker), the damage type a foe resists less (its weak spot), and the kinds
- * of gear to ask for (weapons, armor, consumables, loot).
+ * drink), the trait moves anyone can make (Grapple, Shove, Maneuver, Hide), Help an Ally, sizing a foe up (Analyze or
+ * Perceive), tending a friend out cold, doors (Smash, Tinker), the damage type a foe resists less (its weak spot), and
+ * the kinds of gear to ask for (weapons, armor, consumables, loot).
  * For breaking free (rules.js breakFree): a character's better trait for it, an adversary's attack modifier (for
  * bonds), how hard each one's own grip is to break, and how many hands each weapon takes (its burden).
  * Who it is (traits.js): a character from its whole sheet (traits against its class's guide, level, domains and cards,
@@ -31,7 +32,7 @@
  */
 import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, traitMoves, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
+import { toActionSpec, toReactionSpec, traitMoves, featureMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -301,9 +302,9 @@ export class DaggerheartAdapter extends SystemAdapter {
         actions.push({ ...spec, resource: `item:${item.id}`, resourceCost: 1, shared: undefined, consumable: true, ...(spec.kind === "heal" ? { selfOnly: true } : {}) });
       }
     }
-    // The moves anyone can make with a trait, and Help an Ally.
+    // The moves anyone can make with a trait, and Help an Ally. (Shove is no verb of the system's: this module's word.)
     actions.push(...traitMoves({ id, traits, ranges: r, names: {
-      grapple: verbName("strength", "grapple"), maneuver: verbName("agility", "maneuver"), hide: verbName("finesse", "hide"),
+      grapple: verbName("strength", "grapple"), shove: t("Verb.shove"), maneuver: verbName("agility", "maneuver"), hide: verbName("finesse", "hide"),
       restrained: conditionName("restrained"), vulnerable: conditionName("vulnerable"), hidden: conditionName("hidden")
     } }));
     actions.push(helpAnAlly({ id, label: t("HelpAnAlly"), given: t("Helped"), ranges: r }));
@@ -410,7 +411,9 @@ export class DaggerheartAdapter extends SystemAdapter {
         const data = plain(a);
         // (A Minion's Group Attack, many as one for a Fear, isn't played: each one attacks on its own.)
         if ( type === "minion" && [...(data.cost ?? [])].some(c => c.key === "fear") ) continue;
-        const spec = toActionSpec(data, { ...common, id: `${id}.${item.id}.${data._id}`, label: item.name, effectsById: effectsOf(item) });
+        // (One of the SRD's that knocks a foe back, pulls it in, knocks it over or seizes it, by its id: a maneuver.)
+        const moves = featureMove(item.id, data, r);
+        const spec = toActionSpec(data, { ...common, id: `${id}.${item.id}.${data._id}`, label: item.name, effectsById: effectsOf(item), moves });
         // (An adversary's own features: its specialties.)
         if ( spec ) actions.push({ ...spec, feature: true });
       }

@@ -226,11 +226,13 @@ describe("what restrains a foe says how it's broken", () => {
   const binding = { type: "effect", range: "close", target: { type: "any" }, cost: [], effects: [{ _id: "e1" }] };
   const effectsById = new Map([["e1", { statuses: ["restrained"], changes: [] }]]);
 
-  test("an adversary's: against its Difficulty; a character's: none known here; Grapple: 12 + its Strength", () => {
+  test("an adversary's: against its Difficulty; a character's: none known here; Grapple's critical: 12 + its Strength", () => {
     expect(toActionSpec(binding, { id: "x", pc: false, difficulty: 14, ranges: RANGES, effectsById }).outcome.escape).toEqual({ dc: 14, others: "check" });
     expect(toActionSpec(binding, { id: "x", pc: true, ranges: RANGES, effectsById }).outcome.escape).toEqual({ dc: null, others: "check" });
     const grapple = traitMoves({ id: "p", traits: { strength: 2 } }).find(a => a.traitMove === "grapple");
-    expect(grapple.onHit[2].escape).toEqual({ dc: 14, others: "check" });
+    expect(grapple.onHit[3].escape).toEqual({ dc: 14, others: "check" });
+    // (A plain success is the core's grab: as hard to break as the one grappling's grip, its escapeDC.)
+    expect(grapple.onHit[2]).toEqual({ grab: true });
     // (Nothing to break in what doesn't restrain.)
     const exposing = new Map([["e1", { statuses: ["vulnerable"], changes: [] }]]);
     expect(toActionSpec(binding, { id: "x", pc: false, difficulty: 14, ranges: RANGES, effectsById: exposing }).outcome.escape).toBeUndefined();
@@ -239,7 +241,7 @@ describe("what restrains a foe says how it's broken", () => {
   test("laid on a foe, it's a hold: an adversary breaks it on its spotlight, no roll, and moves again", () => {
     const grapple = traitMoves({ id: "p", traits: { strength: 2 } }).find(a => a.traitMove === "grapple");
     const bandit = unit({ id: "b", pc: false });
-    applyOutcome(bandit, grapple.onHit[2], "p", grapple);
+    applyOutcome(bandit, grapple.onHit[3], "p", grapple);
     const r = run(fixed(1));
     const [hold] = holds.holdsOf(r, bandit);
     expect(hold).toMatchObject({ key: "restrained", byId: "p", dc: 14, others: "check" });

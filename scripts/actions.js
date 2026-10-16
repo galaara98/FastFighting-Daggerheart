@@ -11,7 +11,9 @@
  * A spellcast attack is a spell attack (its caster counts as one). Its cost (Hope, Stress, Fear, an Armor Slot; the first
  * of them) and its uses carry over. Ranges are the system's
  * (Melee, Very Close, Close, Far, Very Far), in feet. An adversary's reaction feature that harms whoever hurt it is one
- * of the engine's reactions (toReactionSpec). Other kinds of action (summons, countdowns, macros, beastforms) aren't
+ * of the engine's reactions (toReactionSpec). An SRD adversary's feature that knocks a foe back, pulls it in, knocks it
+ * over or seizes it (known by its id: FEATURE_MOVES) is one of the core's maneuvers (featureMove), as are the trait
+ * moves anyone can make (traitMoves). Other kinds of action (summons, countdowns, macros, beastforms) aren't
  * played.
  * Pure: no Foundry globals.
  */
@@ -34,6 +36,56 @@ export const CONDITION_KEYS = Object.freeze({
 /** The engine's keys for one of the system's statuses; none for any other (a defeat status, another module's). */
 export const conditionKeysOf = status => (Object.hasOwn(CONDITION_KEYS, status) ? CONDITION_KEYS[status] : []);
 
+/**
+ * The SRD adversaries' features that move a foe or take its footing, by the feature's id in the system's compendium
+ * (kept when an adversary is imported, or copied): their data says what they deal and lay (damage, Vulnerable,
+ * Restrained), not this, which only their words say. Each is one of the core's maneuvers (featureMove):
+ *  - to: knocked back to a range band; by: knocked back as far as a band reaches (from where it stood): a shove, or a
+ *    fling to Far and beyond;
+ *  - in: pulled into Melee range: a drag;
+ *  - maneuver: what it is, where it doesn't move anyone (knocked over, Vulnerable: a trip; seized and held, Restrained:
+ *    a grapple; wrapped and squeezed: constrict).
+ * action: only that one of its actions (the rest do something else). Not here: what only answers a blow, or comes with
+ * its standard attack (a passive's or a reaction's knockback); what moves a foe some other way (thrown out of an area,
+ * or as the GM chooses).
+ */
+const FEATURE_MOVES = Object.freeze({
+  CSrzB2SNFXb3Y5b6: { to: "close" }, // Banshee: Wail of Despair (a failed reaction roll)
+  "0DSCzAFXy0hV4afJ": { to: "far" }, // Deeproot Defender: Ground Slam
+  ESnu3I89BmUdBZEk: { to: "far" }, // Minor Fire Elemental: Explosion
+  OCDeXZ8K5EbT8ywA: { to: "far" }, // Dragon Mother Mitera: Tail Swipe
+  LVFZ4AfVhS6Q9hRy: { to: "close" }, // Vault Guardian Sentinel: Mana Bolt (a failed reaction roll)
+  iGIVBeuyJDKftzrs: { to: "far" }, // Plesiosaurus: Wall of Water (a failed reaction roll)
+  HhuXSt7z9vfEQi8k: { by: "far" }, // Cloud Titan: Wind Worker
+  JHpHvFvrJGI2Kwe1: { by: "close", action: "glnoG8JVxdGxNoyJ" }, // Roc: Here Comes the Boom (its reaction roll, not its attack)
+  NuksKUrbf4yj4vR2: { to: "close" }, // Volcanic Dragon, Molten Scourge: Eruption (a failed reaction roll)
+  bpjpHxf6tj4i3H4r: { to: "close" }, // Volcanic Dragon, Molten Scourge: Shattering Might
+  "8bMOItTuL7PfAYcJ": { to: "far" }, // Volcanic Dragon, Obsidian Predator: Avalanche Tail
+  AXhSVGL33i0j6DAw: { by: "close" }, // Volcanic Dragon, Ashen Tyrant: Desperate Rampage
+  "3X0uVX5xsTcrpQ16": { to: "close" }, // Gargantuan Sea Turtle: Gigaton Splash (a failed reaction roll)
+  afz1zt0dMBQwanI0: { to: "close" }, // Gargantuan Sea Turtle: Tail Bash
+  uzlxE1Cxm9GGmrNs: { to: "close" }, // Pirate Tough: Clear the Decks
+  lxMzWFQOIpidX094: { to: "close" }, // Frost Titan: Bull Rush
+  b2QvDYOq1nreI2uD: { to: "veryFar", action: "8fgkb7U2pxNyiHrB" }, // Minotaur Wrecker: Charging Bull (its attack)
+  rreGFW5TbhUoZf2T: { in: true }, // Deeproot Defender: Grab and Drag
+  dqwQS5ZsTMHWUEPL: { in: true }, // Ahuizotl: Drag and Bag
+  kaTCdf7p0SVNiW0u: { in: true }, // Entombed Empress: Grasping Chains
+  "7DSC9gbRVC7j7nKh": { in: true }, // Cephilith Abomination: Tongue Attack
+  ctXYwil2D1zfsekT: { maneuver: "trip" }, // Acid Burrower: Earth Eruption
+  j1mUnngeA5NKBgnZ: { maneuver: "trip" }, // Landshark Behemoth: Forceful Eruption
+  MabIQE1Kjn60j08J: { maneuver: "trip" }, // Giant Eagle: Deadly Dive
+  zgR0MEqyobKp2yXr: { maneuver: "grapple" }, // Bear: Bite
+  JEsOYtkNPrEjQp9A: { maneuver: "grapple" }, // Octopus: Grapple
+  "7Eiy4PoehsyoMQU2": { maneuver: "grapple" }, // Giant Octopus: Grapple
+  vz2BWhispgR7mSWF: { maneuver: "grapple" }, // Kraken: Grapple and Drown
+  Sa4Nt0eoDjirBKGf: { maneuver: "grapple" }, // Jagged Knife Kneebreaker: Hold Them Down
+  "9gizFt9ovKL05DXu": { maneuver: "grapple" }, // Bladed Guard: Detain
+  bSG0fOnMCgOFVdpP: { maneuver: "grapple" }, // Cephilith Abomination: Bear Hug
+  "0BirBknShzjOvSdz": { maneuver: "grapple" }, // Harbinger of Famine: Too Many Mouths
+  bkNqFMvqT2qnOH9E: { maneuver: "constrict" }, // Lamia: Constriction
+  "2jD66IGYZIZF385K": { maneuver: "constrict", action: "SazYQVwEPYDJQwse" } // Water Mother: Constrict (its attack)
+});
+
 const list = v => (Array.isArray(v) ? v : v instanceof Set ? [...v] : v && typeof v === "object" ? Object.values(v) : v ? [v] : []);
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
@@ -43,6 +95,24 @@ export function reachOf(key, ranges = RANGES) {
   if ( key === "melee" ) return { melee: true, reach: ranges.melee ?? 5 };
   const feet = ranges[key];
   return Number.isFinite(feet) ? { melee: false, range: { increment: feet, max: feet, noPenalty: true } } : null;
+}
+
+/**
+ * What one of an SRD adversary's features does to where a foe stands (FEATURE_MOVES), for one of its actions:
+ * {maneuver, move} (the core's: maneuvers.js), or null. In feet, by the ranges in play, from where the feature reaches
+ * (its area's size, else its range): knocked back to a band, as far as that band is past it (from Melee, where the
+ * feature reaches that far already: the Banshee's wail, within Close, sends each to the edge of Close); by a band, that
+ * band's distance; pulled in, from as far as it reaches to beside the one pulling.
+ */
+export function featureMove(featureId, action, ranges = RANGES) {
+  const m = Object.hasOwn(FEATURE_MOVES, featureId ?? "") ? FEATURE_MOVES[featureId] : null;
+  if ( !m || (m.action && m.action !== (action?._id ?? action?.id)) ) return null;
+  const reach = ranges[list(action?.areas)[0]?.size ?? action?.range] ?? ranges.melee;
+  if ( m.in ) return { maneuver: "drag", move: { kind: "pull", feet: Math.max(ranges.melee, reach - ranges.melee) } };
+  const band = m.to ?? m.by;
+  if ( !band ) return { maneuver: m.maneuver };
+  const from = m.by ? 0 : reach < ranges[band] ? reach : ranges.melee;
+  return { maneuver: ranges[band] > ranges.close ? "fling" : "shove", move: { kind: "push", feet: ranges[band] - from } };
 }
 
 /**
@@ -129,11 +199,28 @@ function targetsOf(action) {
 }
 
 /**
+ * One that moves a foe or takes its footing (ctx.moves, featureMove: {maneuver, move}), as a control action whatever
+ * it would be otherwise: its roll (an attack, a reaction roll it forces, or none: it simply happens), the move landing
+ * with what its effects lay, its damage as ever (dealt as a control action's is: never a critical's), told as the
+ * maneuver it is. Null when it would do nothing.
+ */
+function maneuverSpec(action, ctx, { base, where, area, parts, effect, escape, save = null, bonus = null, magical = false }) {
+  const { maneuver, move = null } = ctx.moves;
+  if ( !effect && !move && !parts.length ) return null;
+  const outcome = { ...(effect ? { ...effect, rounds: 2, ...escape } : {}), label: ctx.label ?? action.name ?? "", ...(move ? { move } : {}) };
+  const spec = { ...base, kind: "control", maneuver, ...(parts.length ? { damage: parts, magical } : {}), ...where, ...area };
+  if ( save ) return { ...spec, save, onSave: [outcome, outcome, null, null] };
+  if ( bonus !== null ) return { ...spec, bonus, onHit: [null, null, outcome, outcome] };
+  return { ...spec, auto: true, outcome: { ...outcome, mods: undefined } };
+}
+
+/**
  * One system action as an engine ActionSpec, or null when it isn't something the engine plays.
  * @param {object} action    the system's action data
  * @param {object} ctx       {id, label, pc, traits ({agility: 1, ...}), spellcast (the trait), proficiency, attackBonus
  *                           (an adversary's), difficulty (its Difficulty, for the reaction rolls it calls for),
- *                           critOn, ranges, effectsById (its item's effects, by id), horde ("full" | "reduced")}
+ *                           critOn, ranges, effectsById (its item's effects, by id), horde ("full" | "reduced"),
+ *                           moves (what it does to where a foe stands: featureMove)}
  */
 export function toActionSpec(action, ctx) {
   if ( !action ) return null;
@@ -149,10 +236,14 @@ export function toActionSpec(action, ctx) {
   const save = action.save?.trait ? { type: action.save.trait, dc: num(action.save.difficulty) || ctx.difficulty || 12, half: action.save.damageMod === "half", basic: action.save.damageMod === "half" } : null;
   // (On a foe: how what restrains it is broken.)
   const escape = escapeOf(effect, ctx);
+  // (On a foe, moving it or taking its footing: a maneuver.)
+  const maneuver = ctx.moves && !["self", "friendly"].includes(action.target?.type) ? { base, where, area, parts, effect, escape } : null;
+  const magicDamage = list(action.damage?.main?.type).includes("magical");
   switch ( action.type ) {
     case "attack": {
       // A reaction roll it forces: a save (with damage), else a control action that lays its effects.
       if ( save ) {
+        if ( maneuver ) return maneuverSpec(action, ctx, { ...maneuver, save, magical: magicDamage });
         if ( parts.length ) return { ...base, kind: "save", save, damage: parts, ...where, ...area, effects: effect?.conditions && Object.keys(effect.conditions).length ? [{ kind: "condition", conditions: effect.conditions, rounds: 2, label: ctx.label ?? "", ...escape }] : undefined };
         if ( !effect ) return null;
         const outcome = { ...effect, rounds: 2, label: ctx.label ?? action.name ?? "", ...escape };
@@ -161,6 +252,7 @@ export function toActionSpec(action, ctx) {
       const kind = action.roll?.type;
       if ( kind !== "attack" && kind !== "spellcast" ) return null;
       const bonus = ctx.pc ? num(ctx.traits?.[kind === "spellcast" ? (ctx.spellcast ?? trait) : trait]) + num(action.roll?.bonus) : num(action.roll?.bonus) || num(ctx.attackBonus);
+      if ( maneuver ) return maneuverSpec(action, ctx, { ...maneuver, bonus, magical: kind === "spellcast" || magicDamage });
       if ( !parts.length ) {
         // A spell that only lays effects on a foe it hits (Slumber): control, decided by the roll against its Difficulty.
         if ( !effect ) return null;
@@ -171,10 +263,11 @@ export function toActionSpec(action, ctx) {
       return {
         ...base, kind: kind === "spellcast" ? "spell-attack" : "strike", bonus, damage: parts, ...(where ?? reachOf("melee", ctx.ranges)), ...area, effects: riders,
         ...(ctx.critOn && ctx.critOn < 20 ? { critOn: ctx.critOn } : {}), ...(ctx.horde ? { horde: ctx.horde } : {}),
-        magical: kind === "spellcast" || list(action.damage?.main?.type).includes("magical")
+        magical: kind === "spellcast" || magicDamage
       };
     }
     case "damage":
+      if ( maneuver ) return maneuverSpec(action, ctx, { ...maneuver, magical: magicDamage });
       return parts.length ? { ...base, kind: "auto", damage: parts, ...(where ?? reachOf("melee", ctx.ranges)), ...area } : null;
     case "healing": {
       const hp = hitPointsHealed(action);
@@ -183,6 +276,7 @@ export function toActionSpec(action, ctx) {
       return heal.length ? { ...base, kind: "heal", heal, ...(where ?? reachOf("melee", ctx.ranges)) } : null;
     }
     case "effect": {
+      if ( maneuver ) return maneuverSpec(action, ctx, maneuver);
       if ( !effect ) return null;
       const outcome = { ...effect, rounds: 2, label: ctx.label ?? action.name ?? "" };
       const who = action.target?.type;
@@ -232,11 +326,16 @@ export function toReactionSpec(action, ctx) {
 
 /**
  * The moves anyone can make with a trait (the SRD's trait verbs), each an action roll against the foe's Difficulty:
- *  - Grapple (Strength): the foe Restrained, until it breaks free (two rounds at most, here);
- *  - Maneuver (Agility): an opening, the foe Vulnerable until it next acts;
+ *  - Grapple (Strength): the foe held (the core's grab: it can't move off, until it breaks free against the grip, 12 +
+ *    its Strength, adapter.js escapeDC); on a critical, Restrained as well (two rounds at most, here);
+ *  - Shove (Strength): the foe pushed out of Melee range to Very Close (10 feet, by the system's ranges); on a
+ *    critical, as far as Close (25 feet);
+ *  - Maneuver (Agility): an opening, the foe Vulnerable until it next acts (told as a feint);
  *  - Hide (Finesse), against Difficulty 12: Hidden (rolls against it at disadvantage) until it attacks.
  * The SRD lets a character attempt these as any action; which trait and what comes of it is this module's reading.
- * @param {object} ctx  {id, traits, names: {grapple, maneuver, hide, restrained, vulnerable, hidden}, ranges}
+ * Each is one of the core's maneuvers (maneuvers.js), with outcomes of its own: Daggerheart has no prone, and the
+ * Duality Dice don't fail critically (nothing for the core's botched grapple or shove).
+ * @param {object} ctx  {id, traits, names: {grapple, shove, maneuver, hide, restrained, vulnerable, hidden}, ranges}
  */
 export function traitMoves({ id, traits = {}, names = {}, ranges = RANGES }) {
   const melee = reachOf("melee", ranges);
@@ -244,10 +343,13 @@ export function traitMoves({ id, traits = {}, names = {}, ranges = RANGES }) {
   const restrained = { conditions: { restrained: 1, immobilized: 1 }, rounds: 2, label: names.restrained ?? "", escape: { dc: 12 + Math.max(0, num(traits.strength)), others: "check" } };
   const vulnerable = { conditions: { vulnerable: 1 }, rounds: 1, label: names.vulnerable ?? "" };
   const hidden = { conditions: { hidden: 1 }, rounds: 2, label: names.hidden ?? "" };
+  const push = band => ({ move: { kind: "push", feet: ranges[band] - ranges.melee } });
+  const strength = { kind: "control", check: { mod: num(traits.strength), against: "ac" }, ...melee };
   return [
-    { id: `${id}.grapple`, name: names.grapple ?? "", kind: "control", check: { mod: num(traits.strength), against: "ac" }, onHit: [null, null, restrained, restrained], traitMove: "grapple", ...melee },
-    { id: `${id}.maneuver`, name: names.maneuver ?? "", kind: "control", check: { mod: num(traits.agility), against: "ac" }, onHit: [null, null, vulnerable, vulnerable], traitMove: "maneuver", ...melee },
-    { id: `${id}.hide`, name: names.hide ?? "", kind: "buff", targets: "self", check: { mod: num(traits.finesse), dc: 12 }, onDegree: [null, null, hidden, hidden], traitMove: "hide", setup: true, leans: ["lowProfile"] }
+    { id: `${id}.grapple`, name: names.grapple ?? "", ...strength, onHit: [null, null, { grab: true }, { grab: true, ...restrained }], traitMove: "grapple", maneuver: "grapple" },
+    { id: `${id}.maneuver`, name: names.maneuver ?? "", kind: "control", check: { mod: num(traits.agility), against: "ac" }, onHit: [null, null, vulnerable, vulnerable], traitMove: "maneuver", maneuver: "feint", ...melee },
+    { id: `${id}.hide`, name: names.hide ?? "", kind: "buff", targets: "self", check: { mod: num(traits.finesse), dc: 12 }, onDegree: [null, null, hidden, hidden], traitMove: "hide", setup: true, leans: ["lowProfile"] },
+    { id: `${id}.shove`, name: names.shove ?? "", ...strength, onHit: [null, null, push("veryClose"), push("close")], traitMove: "shove", maneuver: "shove" }
   ];
 }
 

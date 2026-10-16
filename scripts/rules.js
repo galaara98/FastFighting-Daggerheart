@@ -19,6 +19,7 @@
  * damage. A companion marks one Stress for any damage, and is out of the fight at its last; its rolls are its partner's
  * (the Duality Dice: Hope to the partner, Fear to the GM), and it acts at the end of the round.
  * Reactions: only a feature's (an adversary's that answers being hurt, actions.js toReactionSpec), one a round.
+ * A fall from a height (shoved over a ledge: fallDamage): by the range it falls, the SRD's guide; nobody lands prone.
  *
  * Death moves (onDropped): a player character whose last Hit Point is marked chooses, as its playstyles lean (else
  * its nerve): Avoid Death (out cold; its Hope die at or under its level, a scar), Risk It All (the Duality Dice: Hope
@@ -35,9 +36,9 @@
  * Whether a creature tied up can still cast is the world's setting (tied-up.js).
  * Pure: no Foundry globals (words through t(); the setting through tied-up.js).
  */
-import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize } from "./core.js";
+import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize, part } from "./core.js";
 import { DUALITY, dualityChances, d20Chances, rollDuality, rollD20 } from "./dice.js";
-import { CONDITION_KEYS } from "./actions.js";
+import { CONDITION_KEYS, RANGES } from "./actions.js";
 import { tiedStopsSpells } from "./tied-up.js";
 import { t, systemWord } from "./words.js";
 
@@ -460,6 +461,20 @@ export const daggerheartRules = {
     const marked = u.maxHp - Math.max(0, u.hp);
     return action.horde === "full" ? marked < u.spec.hordeHp : marked >= u.spec.hordeHp;
   },
+
+  /* A fall from a height --------------------------------------------------- */
+  /**
+   * A fall (over a ledge, shoved: the core's forced movement), by the range it falls, in feet by the system's ranges
+   * (the SRD's guide): from Very Close range 1d10+3 physical damage, from Close 1d20+5, from Far or farther 1d100+15
+   * (that the GM may say it kills outright isn't played). Its Hit Points marked as for any hit, an Armor Slot and all.
+   */
+  fallDamage(feet) {
+    if ( !(feet > 0) ) return [];
+    const [faces, flat] = feet <= RANGES.veryClose ? [10, 3] : feet <= RANGES.close ? [20, 5] : [100, 15];
+    return [part([{ n: 1, faces }], flat, "physical")];
+  },
+  /** Daggerheart has no prone: nobody lands that way. */
+  fallProne: false,
 
   /* Falling ---------------------------------------------------------------- */
   /**

@@ -146,6 +146,7 @@
     "Helped": "helped (a d6 on their next roll)",
     "Verb": {
       "grapple": "Grapple",
+      "shove": "Shove",
       "maneuver": "Maneuver",
       "hide": "Hide",
       "analyze": "Analyze",
