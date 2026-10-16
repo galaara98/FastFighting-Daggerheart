@@ -142,7 +142,7 @@ In a live battle, each turn's changes go onto the sheets as the turn is played:
 - An NPC: how it ended (it has nothing to mark).
 - Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
 - The GM's Fear, written to the world.
-- Conditions put on a creature or taken off it, by the fight or by the GM in the Battle Interface: Vulnerable, Hidden and Restrained (FastFighting's "can't move" is Restrained too). Each turn the token's conditions are read back, so one the GM takes off the token is gone from the fight as well. What Daggerheart has no condition for (frightened, turned, stunned and the rest) FastFighting keeps.
+- Conditions put on a creature or taken off it, by the fight or by the GM in the Battle Vantage: Vulnerable, Hidden and Restrained (FastFighting's "can't move" is Restrained too). Each turn the token's conditions are read back, so one the GM takes off the token is gone from the fight as well. What Daggerheart has no condition for (frightened, turned, stunned and the rest) FastFighting keeps.
 - Breaking free of Restrained (laid in the fight, or already on the token): a character makes an action roll with the better of Strength and Agility (a friend beside it, pulling it loose, with Strength or Finesse) against the Difficulty of the adversary who laid it, or what's typical for its tier when that isn't known (12 in tier 1). It's the spotlight's action, and it brings Hope or Fear and swings the spotlight like any action roll. An adversary simply clears it when the GM spotlights it, spending that spotlight. Once broken, it comes off the token.
 
 Rewind Turn takes one turn back; Rewind This Encounter, all of it.

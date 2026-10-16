@@ -151,7 +151,7 @@ async function settleConditions(actor, conditions, undo) {
 /**
  * A live battle: one turn's changes (the core's engine/changes.js) written onto a token. Hit Points and Stress marked,
  * Hope, as the turn left them; Armor Slots marked, consumables used and a scar, by what this turn changed
- * (options.before); the conditions laid or taken off (the GM's in the Battle Interface too); and how it ended up: out
+ * (options.before); the conditions laid or taken off (the GM's in the Battle Vantage too); and how it ended up: out
  * cold, dead, defeated, gone.
  * @returns {Promise<object>} an undo record (its shape is at the top of this file)
  */
