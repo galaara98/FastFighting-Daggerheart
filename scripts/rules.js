@@ -5,7 +5,8 @@
  * Hope gains it a Hope (at most its maximum); with Fear, the GM gains a Fear (at most 12); a critical (matching dice)
  * gains a Hope and clears a Stress. Before rolling it may spend a Hope on an Experience that fits, when that's worth it.
  * Reaction rolls bring neither Hope nor Fear; against something taking hold of its body (a sickness spreading), it's a
- * Strength roll (toughSave).
+ * Strength roll (toughSave). An action's Hope and Stress cleared (gainResource): up to its most, and worth as much as it
+ * has room for (resourceWorth).
  *
  * The spotlight (roundTurns): there's no initiative. Each player character takes the spotlight in turn; one whose
  * action roll fails, or goes with Fear, hands it to the GM, who spotlights an adversary (the one that has waited
@@ -84,6 +85,14 @@ function gainFear(u, n = 1) {
 function clearStress(u, n = 1) {
   if ( Number.isFinite(u.resources.stress) ) u.resources.stress = Math.min(u.spec.stressMax ?? 6, u.resources.stress + n);
 }
+
+/**
+ * What a Hope is worth to a player character, in Hit Points marked (as the engine weighs a blow): an Experience on a roll
+ * that matters, a friend Helped, a step toward its Hope feature. A Stress cleared: more of its features to pay for, and
+ * a Hit Point it won't mark for Stress it can't; more with none left.
+ */
+const HOPE_WORTH = 0.3;
+const STRESS_WORTH = 0.25;
 
 /**
  * A Hope on an Experience before the dice, when one fits and it's worth it: the roll's chance of success up by WORTH
@@ -713,6 +722,32 @@ export const daggerheartRules = {
   },
   resistShare() {
     return 0.5;
+  },
+
+  /* Hope and Stress, gained ------------------------------------------------ */
+  /**
+   * What an action gives (actions.js gainSpec: the core's outcome.resources): Hope a player character gains, up to its
+   * most (nobody else has any); Stress anyone clears, as far as it has any marked. Anything else as the core keeps it.
+   */
+  gainResource(u, key, amount) {
+    const n = Number(amount) || 0;
+    if ( key === "hope" ) {
+      if ( isPc(u) ) u.resources.hope = clamp((u.resources.hope ?? 0) + n, 0, u.spec.hopeMax ?? 6);
+      return;
+    }
+    if ( key === "stress" ) {
+      if ( Number.isFinite(u.resources.stress) ) u.resources.stress = clamp(u.resources.stress + n, 0, u.spec.stressMax ?? 6);
+      return;
+    }
+    u.resources[key] = (u.resources[key] ?? 0) + n;
+  },
+  /** What Hope or a Stress cleared is worth to it (HOPE_WORTH, STRESS_WORTH), only as far as it has room for them. */
+  resourceWorth(run, u, key, amount) {
+    const n = Math.max(0, Number(amount) || 0);
+    if ( key === "hope" ) return isPc(u) ? Math.min(n, Math.max(0, (u.spec.hopeMax ?? 6) - (u.resources.hope ?? 0))) * HOPE_WORTH : 0;
+    if ( key !== "stress" || !Number.isFinite(u.resources.stress) ) return 0;
+    const room = Math.min(n, Math.max(0, (u.spec.stressMax ?? 6) - u.resources.stress));
+    return room * STRESS_WORTH * (u.resources.stress <= 0 ? 1.5 : 1);
   },
 
   /** What writing back needs beyond the core's: Hope, Stress, Armor Slots, the death move, a scar, and the GM's Fear. */

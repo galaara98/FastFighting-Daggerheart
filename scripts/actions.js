@@ -5,7 +5,8 @@
  *    with a reaction roll it forces instead (a save: the trait, the Difficulty), a save, or a control action when it
  *    only lays effects;
  *  - damage, without a roll: it simply happens;
- *  - healing that clears Hit Points: a heal;
+ *  - the Stress either marks besides its Hit Points (its damage's Stress): Stress damage;
+ *  - healing that clears Hit Points: a heal; that gives Hope or clears Stress instead, a buff that gains them (gainSpec);
  *  - effect: what its effects do that the engine knows (bonuses to rolls and damage, Evasion, the conditions
  *    Vulnerable, Hidden and Restrained), on itself, a friend or a foe. Restrained laid on a foe says how it's broken.
  * A spellcast attack is a spell attack (its caster counts as one). Its cost (Hope, Stress, Fear, an Armor Slot; the first
@@ -18,7 +19,7 @@
  * Other kinds of action (summons, countdowns, macros, beastforms) aren't played.
  * Pure: no Foundry globals.
  */
-import { part, parseFormula } from "./core.js";
+import { part, parseFormula, meanPart } from "./core.js";
 
 /** The system's ranges, in feet, unless its Range Measurement rule says otherwise. */
 export const RANGES = Object.freeze({ melee: 5, veryClose: 15, close: 30, far: 60, veryFar: 120 });
@@ -148,7 +149,8 @@ export function attackMove(featureId, attack, ranges = RANGES, label = "") {
 
 /**
  * A damage formula's parts: its dice (as many as its Proficiency, for "prof"; else its own count, none at all for a
- * count of 0), its bonus, or its own formula. Typed physical or magical; Stress damage as "stress". Direct damage (the
+ * count of 0), its bonus, or its own formula. Typed physical or magical; Stress damage as "stress", the Stress it marks
+ * besides its Hit Points (a Vampire's Draining Bite, a Green Ooze's Envelop) too. Direct damage (the
  * system's damage.direct: no Armor Slot can lessen it) is marked so, for the core to say (rules.js applyIwr).
  */
 export function damagePartsOf(damage, { proficiency = 1 } = {}) {
@@ -156,8 +158,20 @@ export function damagePartsOf(damage, { proficiency = 1 } = {}) {
   return damage?.direct ? parts.map(p => ({ ...p, direct: true })) : parts;
 }
 
+/** An action's other resources, as the system keeps them (its damage's resources; an older action's parts, by key). */
+const resourcesOf = damage => damage?.resources ?? (damage?.parts && !Array.isArray(damage.parts) ? damage.parts : null) ?? {};
+
 function basePartsOf(damage, { proficiency = 1 } = {}) {
   const main = damage?.main ?? damage?.parts?.hitPoints ?? null;
+  const parts = partsOf(main, { proficiency });
+  // (The Stress it marks besides: Stress damage too, where it comes to any. A heal's is the Stress it clears: gainSpec.)
+  const stress = main?.applyTo === "stress" ? null : resourcesOf(damage).stress;
+  if ( stress?.value ) parts.push(...partsOf({ ...stress, applyTo: "stress" }, { proficiency }).filter(p => p.flat > 0 || p.dice.some(d => d.n > 0 && d.faces > 0)));
+  return parts;
+}
+
+/** One damage part's dice and bonus, or its own formula: [part], or none. */
+function partsOf(main, { proficiency = 1 } = {}) {
   const value = main?.value;
   if ( !value ) return [];
   const type = main.applyTo === "stress" ? "stress" : list(main.type)[0] ?? "physical";
@@ -308,9 +322,10 @@ export function toActionSpec(action, ctx) {
       return parts.length ? { ...base, kind: "auto", damage: parts, ...(where ?? reachOf("melee", ctx.ranges)), ...area } : null;
     case "healing": {
       const hp = hitPointsHealed(action);
-      if ( !hp?.value ) return null;
-      const heal = damagePartsOf({ main: hp }, { proficiency: ctx.proficiency }).map(p => ({ ...p, type: "healing" }));
-      return heal.length ? { ...base, kind: "heal", heal, ...(where ?? reachOf("melee", ctx.ranges)) } : null;
+      const heal = hp?.value ? damagePartsOf({ main: hp }, { proficiency: ctx.proficiency }).map(p => ({ ...p, type: "healing" })) : [];
+      if ( heal.length ) return { ...base, kind: "heal", heal, ...(where ?? reachOf("melee", ctx.ranges)) };
+      // (No Hit Points: the Hope it gives, the Stress it clears.)
+      return gainSpec(action, ctx, { base, where, area });
     }
     case "effect": {
       if ( maneuver ) return maneuverSpec(action, ctx, maneuver);
@@ -326,6 +341,36 @@ export function toActionSpec(action, ctx) {
     default:
       return null;
   }
+}
+
+/**
+ * What a healing action gives besides Hit Points: Hope gained and Stress cleared ({hope, stress}), each as many as it
+ * comes to on average (its dice, its Proficiency); null for neither.
+ */
+export function resourcesGained(action, { proficiency = 1 } = {}) {
+  const res = action?.damage ? resourcesOf(action.damage) : action?.healing ?? {};
+  const out = {};
+  for ( const key of ["hope", "stress"] ) {
+    if ( !res[key]?.value ) continue;
+    const n = Math.round(partsOf(res[key], { proficiency }).reduce((s, p) => s + Math.max(0, meanPart(p)), 0));
+    if ( n > 0 ) out[key] = n;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * A healing action that clears no Hit Points but gives Hope or clears Stress (resourcesGained), as a buff that gains
+ * them (the core's outcome.resources, through rules.js gainResource): on itself, or on a friend (itself too) within its
+ * reach. Only one with something to pay for it or only so many uses (Battle Ritual, once a long rest; Mending Touch, for
+ * 2 Hope): one free any number of times is a trigger's payoff (on a critical, when an attack misses it: Gore and Glory,
+ * Swift Step), which comes about as its words say. Null for anything else.
+ */
+function gainSpec(action, ctx, { base, where, area }) {
+  const resources = resourcesGained(action, { proficiency: ctx.proficiency });
+  if ( !resources || !(base.resource || base.uses) ) return null;
+  const outcome = { resources, label: ctx.label ?? action.name ?? "" };
+  if ( action.target?.type === "self" || action.range === "self" ) return { ...base, kind: "buff", targets: "self", outcome };
+  return { ...base, kind: "buff", outcome, ...(where ?? reachOf("melee", ctx.ranges)), ...area };
 }
 
 /**
