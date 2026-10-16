@@ -24,10 +24,21 @@
  * its nerve): Avoid Death (out cold; its Hope die at or under its level, a scar), Risk It All (the Duality Dice: Hope
  * higher, it clears that many Hit Points and fights on; Fear higher, it dies; matching, it clears them all and its
  * Stress), or Blaze of Glory (one last action, a critical, and then it dies). Adversaries are defeated (dead).
- * Pure: no Foundry globals (words through t()).
+ *
+ * Breaking free (breakFree, the core's holds.js): Restrained is a temporary condition. A player character (or a
+ * companion) clears it with an action roll, the better of Strength and Agility, against the Difficulty of whoever laid
+ * it (what's typical for its tier, when that isn't known); an adversary clears it when the GM spotlights it, with no
+ * roll, spending that spotlight. A friend beside it can pull it loose the same way, with Strength or Finesse.
+ * FastFighting's improvised bonds are homebrew (Daggerheart has none): Strength or Finesse for a character, the d20
+ * and its attack modifier for an adversary, against two over its tier's typical Difficulty; a friend unties them with
+ * no roll. Either way it's the spotlight's action, and a character's roll brings Hope or Fear like any action roll.
+ * Whether a creature tied up can still cast is the world's setting (tied-up.js).
+ * Pure: no Foundry globals (words through t(); the setting through tied-up.js).
  */
-import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance } from "./core.js";
+import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize } from "./core.js";
 import { DUALITY, dualityChances, d20Chances, rollDuality, rollD20 } from "./dice.js";
+import { CONDITION_KEYS } from "./actions.js";
+import { tiedStopsSpells } from "./tied-up.js";
 import { t, systemWord } from "./words.js";
 
 /** The most Fear the GM can hold. */
@@ -201,6 +212,15 @@ function* gmTurn(run, order) {
   }
 }
 
+/**
+ * A try at a hold on the Duality Dice, in words for the log (the core shows a d20's numbers itself): the trait, the
+ * total against the Difficulty, how it went.
+ */
+function triedLine(roll, mod, dc, label) {
+  const numbers = localize("FASTFIGHTING.Log.RollOwn", { natural: roll.natural, mod: mod >= 0 ? `+${mod}` : `${mod}`, total: roll.total, label: systemWord("DAGGERHEART.GENERAL.difficulty", "Difficulty"), dc });
+  return label ? t("BreakFree.Trait", { trait: label, roll: numbers, note: roll.note }) : t("BreakFree.Plain", { roll: numbers, note: roll.note });
+}
+
 /** The first of `list` after `from` in the fight's order, round again to the first. */
 function nextIn(list, from, order) {
   if ( !list.length ) return null;
@@ -224,12 +244,13 @@ export const daggerheartRules = {
    * One in a hurry (its playstyles' rush: Impatient, Speed-Runner), with no foe within Close range, sprints for it: a
    * player character with an Agility action roll against Difficulty 12 (made, it moves up to Far; either way the
    * spotlight's action is spent on it, and the roll brings Hope or Fear); an adversary simply moves up to Very Far, as
-   * its action.
+   * its action. One held where it is (Restrained, a grab, tied up) doesn't.
    */
   startTurn(run, u) {
     u.sprinting = false;
     const rush = (u.turnBehavior ?? u.ownBehavior ?? u.spec.behavior ?? {}).rush ?? 0;
     if ( !(rush > 0) || !run.prep.options.positioning || !u.spec.sprint || u.status !== STATUS.STANDING ) return null;
+    if ( u.conds?.immobilized || u.grabbedBy || u.bound || u.boundBy ) return null;
     const enemies = run.prep.sides[u.side]?.enemies ?? new Set();
     let nearest = null;
     for ( const o of run.units ) {
@@ -551,6 +572,58 @@ export const daggerheartRules = {
     const text = u.dhNote;
     u.dhNote = null;
     return { text };
+  },
+
+  /* Breaking free --------------------------------------------------------- */
+  /**
+   * The sheet's Restrained, with nothing of the engine's behind it (put on by the GM, or by the system): a temporary
+   * condition, broken with an action (breakFree), its own or a friend's beside it. Who laid it isn't known, so it's as
+   * hard as what's typical for its tier (12 in tier 1, as this module's other Difficulties the SRD leaves to the GM).
+   * One hold for the engine's two keys for it (restrained, and immobilized: the same Restrained).
+   */
+  escapeFrom(run, u, key) {
+    if ( !CONDITION_KEYS.restrained.includes(key) ) return null;
+    if ( key !== "restrained" && u.baseConds?.restrained > 0 ) return null;
+    return { dc: daggerheartRules.typical.dc(u.spec.level), others: "check" };
+  },
+  /** FastFighting's improvised bonds (homebrew: Daggerheart has none): two harder than its tier's typical, 14 in tier 1. */
+  bondsDC(u) {
+    return daggerheartRules.typical.dc(u.spec.level) + 2;
+  },
+  /** A try at breaking free: the spotlight's action (an adversary's spotlight, spent on it). */
+  escapeCost() {
+    return { action: 1 };
+  },
+  /** Freeing a friend beside it: the spotlight's action. */
+  untieCost() {
+    return { action: 1 };
+  },
+  /**
+   * One try at a hold, by `who`: itself, or (freeing) a friend beside `held`. A player character or a companion makes
+   * an action roll on the Duality Dice (Hope, Fear, the spotlight as any action roll's), its better trait for it
+   * (spec.escapeWork: Strength or Agility out of a grip, Strength or Finesse for bonds or a friend), against the hold's
+   * Difficulty (else what's typical for the held one's tier). An adversary clears a hold when the GM spotlights it, no
+   * roll; its bonds take the d20 and its attack modifier. Bonds a friend unties are the core's (no roll). What comes
+   * off with a hold broken (Restrained's immobilized too) is the core's.
+   */
+  breakFree(run, who, hold, { freeing = false, held = null } = {}) {
+    if ( freeing && hold.others === "untie" ) return null;
+    const bonds = hold.key === "bound";
+    const dc = Number.isFinite(hold.dc) ? hold.dc : daggerheartRules.typical.dc((held ?? who).spec.level);
+    if ( rollsDuality(who) ) {
+      const work = (bonds || freeing ? who.spec.escapeWork?.bonds : who.spec.escapeWork) ?? {};
+      const mod = Number(work.mod) || 0;
+      const roll = daggerheartRules.roll(run.rng, mod, dc, { roller: who, faces: DUALITY, kind: "check" });
+      return { success: roll.degree >= 2, degree: roll.degree, dc, said: { text: triedLine(roll, roll.total - roll.natural, dc, work.label) } };
+    }
+    if ( !bonds ) return { success: true };
+    const mod = Number(who.spec.escapeWork?.mod) || 0;
+    const roll = daggerheartRules.roll(run.rng, mod, dc, { roller: who, faces: 20, kind: "check" });
+    return { success: roll.degree >= 2, degree: roll.degree, natural: roll.natural, mod, total: roll.total, dc };
+  },
+  /** Whether a creature tied up casts no spells: the world's setting (the SRD doesn't say which need free hands). */
+  get tiedStopsSpells() {
+    return tiedStopsSpells();
   },
 
   /* What's typical, by level --------------------------------------------- */

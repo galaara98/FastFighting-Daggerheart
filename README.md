@@ -83,6 +83,7 @@ Tactics answers:
 - Striking a character out cold from Avoid Death: it rolls the Duality Dice; Fear higher, it dies; otherwise it hangs on, still out cold.
 - Tending a friend out cold: an Instinct or Knowledge action roll against Difficulty 12 keeps it safe from a finishing blow; a critical clears a Hit Point and gets it up.
 - Which trait each move uses, what Grapple and Maneuver lay on a foe, and Difficulty 12 for Hide, Sprint, doors and tending.
+- Breaking free: the traits above; a character's grip is 12 + its Strength to break. FastFighting's improvised bonds (Daggerheart has none) take Strength or Finesse for a character, or a d20 and its attack modifier for an adversary, against two over its tier's typical Difficulty (14 in tier 1); a friend unties them with no roll. The SRD doesn't say which spells need free hands, so the world setting **Tied up stops spells** (on by default) decides whether a creature that's tied up can cast. A weapon always needs as many hands as its burden.
 - An adversary's gold: the SRD doesn't count it, so a humanoid adversary is reckoned to carry a handful a tier (a Leader's or a Solo's twice that), a beast or a Minion none: something to steal, or to pay with in a standoff.
 
 ## Set up by itself
@@ -138,6 +139,7 @@ In a live battle, each turn's changes go onto the sheets as the turn is played:
 - Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
 - The GM's Fear, written to the world.
 - Conditions put on a creature or taken off it, by the fight or by the GM in the Battle Interface: Vulnerable, Hidden and Restrained (FastFighting's "can't move" is Restrained too). Each turn the token's conditions are read back, so one the GM takes off the token is gone from the fight as well. What Daggerheart has no condition for (frightened, turned, stunned and the rest) FastFighting keeps.
+- Breaking free of Restrained (laid in the fight, or already on the token): a character makes an action roll with the better of Strength and Agility (a friend beside it, pulling it loose, with Strength or Finesse) against the Difficulty of the adversary who laid it, or what's typical for its tier when that isn't known (12 in tier 1). It's the spotlight's action, and it brings Hope or Fear and swings the spotlight like any action roll. An adversary simply clears it when the GM spotlights it, spending that spotlight. Once broken, it comes off the token.
 
 Rewind Turn takes one turn back; Rewind This Encounter, all of it.
 

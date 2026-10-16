@@ -132,7 +132,15 @@
       "loreBoost": {
         "Name": "Lore-Collector advantage",
         "Hint": "How much likelier a Lore-Collector's next roll against a foe is to succeed after it sizes that foe up (Analyze with Knowledge, or Perceive with Instinct, against the foe's Difficulty; on a success, never without it). 1.25× is a nudge, 3× a sure thing more often than not. Default 2.4×: what it takes for that one roll to make up for the action it cost."
+      },
+      "tiedStopsSpells": {
+        "Name": "Tied up stops spells",
+        "Hint": "Daggerheart doesn't say which spells need free hands. On: a creature that's tied up casts nothing until it's free. Off: it can still cast. Either way it can't use a weapon, and it can still talk."
       }
+    },
+    "BreakFree": {
+      "Trait": "{trait}: {roll} · {note}",
+      "Plain": "{roll} · {note}"
     },
     "HelpAnAlly": "Help an Ally",
     "Helped": "helped (a d6 on their next roll)",

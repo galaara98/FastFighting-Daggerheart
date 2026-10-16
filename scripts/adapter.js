@@ -20,6 +20,8 @@
  * drink), the trait moves anyone can make (Grapple, Maneuver, Hide), Help an Ally, sizing a foe up (Analyze or Perceive),
  * tending a friend out cold, doors (Smash, Tinker), the damage type a foe resists less (its weak spot), and the kinds
  * of gear to ask for (weapons, armor, consumables, loot).
+ * For breaking free (rules.js breakFree): a character's better trait for it, an adversary's attack modifier (for
+ * bonds), how hard each one's own grip is to break, and how many hands each weapon takes (its burden).
  * Who it is (traits.js): a character from its whole sheet (traits against its class's guide, level, domains and cards,
  * subclass, ancestry, community, what its features do, scars, Stress slots, party); an adversary from its type, tier,
  * motives, features and the damage it resists.
@@ -68,6 +70,11 @@ const traitName = k => systemWord(`DAGGERHEART.CONFIG.Traits.${k}.name`, `Trait.
 /** A trait's verb ("Grapple", the system's word for what Strength does). */
 const verbName = (trait, verb) => systemWord(`DAGGERHEART.CONFIG.Traits.${trait}.verb.${verb}`, `Verb.${verb}`);
 const conditionName = k => systemWord(`DAGGERHEART.CONFIG.Condition.${k}.name`, `Condition.${k}`);
+/** The better of these traits for a roll (the first, when they're even): {mod, label}. */
+function bestTrait(traits, keys) {
+  const k = keys.reduce((best, key) => (traits[key] > traits[best] ? key : best));
+  return { mod: traits[k], label: traitName(k) };
+}
 
 /**
  * Gold, by the world's currency (its homebrew settings): coins (when they're on), handfuls, bags and chests, ten of
@@ -263,10 +270,10 @@ export class DaggerheartAdapter extends SystemAdapter {
     const id = tokenDoc.id;
     const actions = [];
     const common = { pc: true, traits, spellcast, proficiency, ranges: r };
-    // Its weapons (else unarmed: its Proficiency in d4s, Strength or Finesse).
+    // Its weapons (else unarmed: its Proficiency in d4s, Strength or Finesse), each in as many hands as its burden.
     for ( const w of [sys.primaryWeapon, sys.secondaryWeapon].filter(Boolean) ) {
       const spec = toActionSpec(plain(w.system.attack), { ...common, id: `${id}.${w.id}`, label: w.name, effectsById: effectsOf(w) });
-      if ( spec ) actions.push(spec);
+      if ( spec ) actions.push({ ...spec, hands: w.system.burden === "twoHanded" ? 2 : 1 });
     }
     if ( !actions.length ) {
       const trait = traits.finesse > traits.strength ? "finesse" : "strength";
@@ -341,6 +348,10 @@ export class DaggerheartAdapter extends SystemAdapter {
       // Lifting something off someone: Finesse.
       theft: { skill: traitName("finesse"), mod: traits.finesse },
       doorWork: { force: { mod: traits.strength }, pick: { mod: traits.finesse } },
+      // Breaking free (rules.breakFree): out of a grip, a net or a web, Strength or Agility; out of bonds, or freeing a
+      // friend, Strength or Finesse. Its own grip: 12 + its Strength to break, as this module's other rolls against it.
+      escapeWork: { ...bestTrait(traits, ["strength", "agility"]), bonds: bestTrait(traits, ["strength", "finesse"]) },
+      escapeDC: 12 + Math.max(0, traits.strength),
       valuables: { money: goldValue(sys.gold, kinds), denominations: kinds.map(k => ({ label: k.label, value: k.value })), stowed: stowedOf(actor), wielded: [] },
       social: {
         pitches: Object.fromEntries(["persuade", "intimidate", "deceive"].map(k => [k, { skill: traitName("presence"), mod: traits.presence }])),
@@ -452,6 +463,10 @@ export class DaggerheartAdapter extends SystemAdapter {
         languages: beast ? [] : ["common"]
       },
       valuables: { money: adversaryGold(type, tier, beast), denominations: currency().map(k => ({ label: k.label, value: k.value })), stowed: [], wielded: [] },
+      // Breaking free (rules.breakFree): out of a hold, the GM spends its spotlight on it, no roll; out of bonds, the d20
+      // and its attack modifier. Its own grip: its Difficulty to break, like any roll against it.
+      escapeWork: { mod: attackBonus },
+      escapeDC: num(sys.difficulty),
       leadership: { id, name: actor.name, type, typeName: typeName(type), tier, pc: false }
     };
   }
@@ -493,6 +508,8 @@ export class DaggerheartAdapter extends SystemAdapter {
       actions,
       iwr: { immune: [], resist: {}, weak: {} },
       resources: {},
+      // (What it holds fast: its Difficulty to break.)
+      escapeDC: num(sys.difficulty),
       traits: { tactical: { base: 20, fudge: 0 }, brave: { base: 100, fudge: 0 }, selfish: { base: 50, fudge: 0 }, loyal: { base: 50, fudge: 0 } },
       flags: { fearless: true, mindless: true },
       diesAtZero: false,
@@ -547,6 +564,10 @@ export class DaggerheartAdapter extends SystemAdapter {
       // (Its partner: the core finds its token on the field, and the companion stands by it.)
       flags: { ...derived.flags, masterActorId: partner?.id ?? null },
       diesAtZero: false,
+      // Breaking free: its partner's Duality Dice, no trait to add (an Experience, for its partner's Hope). Its own grip:
+      // 12 to break, a character's with no Strength to add.
+      escapeWork: { mod: 0, bonds: { mod: 0 } },
+      escapeDC: 12,
       perception: experiences[0]?.value ?? 0,
       creatureKind: actorTypeName("companion"),
       social: { languages: [], pitches: {}, resist: {} },
@@ -584,6 +605,9 @@ export class DaggerheartAdapter extends SystemAdapter {
       traitReasons: derived.reasons,
       flags: { ...derived.flags },
       diesAtZero: false,
+      // (Breaking free: as an adversary does, with nothing to add. Its grip: its Difficulty.)
+      escapeWork: { mod: 0 },
+      escapeDC: dc,
       perception: 0,
       creatureKind: actorTypeName("npc"),
       social: {

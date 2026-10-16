@@ -7,7 +7,7 @@
  *  - damage, without a roll: it simply happens;
  *  - healing that clears Hit Points: a heal;
  *  - effect: what its effects do that the engine knows (bonuses to rolls and damage, Evasion, the conditions
- *    Vulnerable, Hidden and Restrained), on itself, a friend or a foe.
+ *    Vulnerable, Hidden and Restrained), on itself, a friend or a foe. Restrained laid on a foe says how it's broken.
  * A spellcast attack is a spell attack (its caster counts as one). Its cost (Hope, Stress, Fear, an Armor Slot; the first
  * of them) and its uses carry over. Ranges are the system's
  * (Melee, Very Close, Close, Far, Very Far), in feet. An adversary's reaction feature that harms whoever hurt it is one
@@ -99,6 +99,16 @@ export function effectOf(action, effectsById = new Map()) {
   return has ? { conditions, mods } : null;
 }
 
+/**
+ * How the Restrained an action lays is broken (a temporary condition: rules.js breakFree), for the effect it leaves: an
+ * action roll against the Difficulty of the adversary who laid it (a character's: none known here, so what's typical),
+ * its own or a friend's beside it. Nothing for an effect that doesn't restrain.
+ */
+function escapeOf(effect, ctx) {
+  if ( !CONDITION_KEYS.restrained.some(k => effect?.conditions?.[k]) ) return {};
+  return { escape: { dc: ctx.pc ? null : num(ctx.difficulty) || null, others: "check" } };
+}
+
 /** The Hit Points a healing action clears, if it clears any. */
 const hitPointsHealed = action => action?.damage?.resources?.hitPoints ?? action?.healing?.hitPoints ?? null;
 
@@ -137,13 +147,15 @@ export function toActionSpec(action, ctx) {
   const area = targets > 1 ? { area: { targets } } : {};
   const trait = action.roll?.trait ?? null;
   const save = action.save?.trait ? { type: action.save.trait, dc: num(action.save.difficulty) || ctx.difficulty || 12, half: action.save.damageMod === "half", basic: action.save.damageMod === "half" } : null;
+  // (On a foe: how what restrains it is broken.)
+  const escape = escapeOf(effect, ctx);
   switch ( action.type ) {
     case "attack": {
       // A reaction roll it forces: a save (with damage), else a control action that lays its effects.
       if ( save ) {
-        if ( parts.length ) return { ...base, kind: "save", save, damage: parts, ...where, ...area, effects: effect?.conditions && Object.keys(effect.conditions).length ? [{ kind: "condition", conditions: effect.conditions, rounds: 2, label: ctx.label ?? "" }] : undefined };
+        if ( parts.length ) return { ...base, kind: "save", save, damage: parts, ...where, ...area, effects: effect?.conditions && Object.keys(effect.conditions).length ? [{ kind: "condition", conditions: effect.conditions, rounds: 2, label: ctx.label ?? "", ...escape }] : undefined };
         if ( !effect ) return null;
-        const outcome = { ...effect, rounds: 2, label: ctx.label ?? action.name ?? "" };
+        const outcome = { ...effect, rounds: 2, label: ctx.label ?? action.name ?? "", ...escape };
         return { ...base, kind: "control", save, onSave: [outcome, outcome, null, null], ...where, ...area };
       }
       const kind = action.roll?.type;
@@ -152,10 +164,10 @@ export function toActionSpec(action, ctx) {
       if ( !parts.length ) {
         // A spell that only lays effects on a foe it hits (Slumber): control, decided by the roll against its Difficulty.
         if ( !effect ) return null;
-        const outcome = { ...effect, rounds: 2, label: ctx.label ?? action.name ?? "" };
+        const outcome = { ...effect, rounds: 2, label: ctx.label ?? action.name ?? "", ...escape };
         return { ...base, kind: "control", bonus, onHit: [null, null, outcome, outcome], ...where, ...area };
       }
-      const riders = effect?.conditions && Object.keys(effect.conditions).length ? [{ kind: "condition", conditions: effect.conditions, rounds: 2, label: ctx.label ?? "" }] : undefined;
+      const riders = effect?.conditions && Object.keys(effect.conditions).length ? [{ kind: "condition", conditions: effect.conditions, rounds: 2, label: ctx.label ?? "", ...escape }] : undefined;
       return {
         ...base, kind: kind === "spellcast" ? "spell-attack" : "strike", bonus, damage: parts, ...(where ?? reachOf("melee", ctx.ranges)), ...area, effects: riders,
         ...(ctx.critOn && ctx.critOn < 20 ? { critOn: ctx.critOn } : {}), ...(ctx.horde ? { horde: ctx.horde } : {}),
@@ -178,7 +190,7 @@ export function toActionSpec(action, ctx) {
       if ( who === "friendly" ) return { ...base, kind: "buff", outcome, ...(where ?? reachOf("close", ctx.ranges)) };
       // On a foe: it simply happens (its conditions); a bonus is for friends.
       if ( !Object.keys(effect.conditions).length ) return { ...base, kind: "buff", targets: "self", outcome };
-      return { ...base, kind: "control", auto: true, outcome: { ...outcome, mods: undefined }, ...(where ?? reachOf("close", ctx.ranges)), ...area };
+      return { ...base, kind: "control", auto: true, outcome: { ...outcome, mods: undefined, ...escape }, ...(where ?? reachOf("close", ctx.ranges)), ...area };
     }
     default:
       return null;
@@ -220,7 +232,7 @@ export function toReactionSpec(action, ctx) {
 
 /**
  * The moves anyone can make with a trait (the SRD's trait verbs), each an action roll against the foe's Difficulty:
- *  - Grapple (Strength): the foe Restrained, until it clears it (two rounds, here);
+ *  - Grapple (Strength): the foe Restrained, until it breaks free (two rounds at most, here);
  *  - Maneuver (Agility): an opening, the foe Vulnerable until it next acts;
  *  - Hide (Finesse), against Difficulty 12: Hidden (rolls against it at disadvantage) until it attacks.
  * The SRD lets a character attempt these as any action; which trait and what comes of it is this module's reading.
@@ -228,7 +240,8 @@ export function toReactionSpec(action, ctx) {
  */
 export function traitMoves({ id, traits = {}, names = {}, ranges = RANGES }) {
   const melee = reachOf("melee", ranges);
-  const restrained = { conditions: { restrained: 1, immobilized: 1 }, rounds: 2, label: names.restrained ?? "" };
+  // (Broken as any grip of a character's is: 12 + its Strength, adapter.js escapeDC.)
+  const restrained = { conditions: { restrained: 1, immobilized: 1 }, rounds: 2, label: names.restrained ?? "", escape: { dc: 12 + Math.max(0, num(traits.strength)), others: "check" } };
   const vulnerable = { conditions: { vulnerable: 1 }, rounds: 1, label: names.vulnerable ?? "" };
   const hidden = { conditions: { hidden: 1 }, rounds: 2, label: names.hidden ?? "" };
   return [
