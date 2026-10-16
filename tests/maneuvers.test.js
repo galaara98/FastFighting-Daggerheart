@@ -132,11 +132,12 @@ describe("an SRD adversary's features, by their ids", () => {
   });
 
   test("with its standard attack: knocked back to a band, pushed until that far off; pulled in from as far as the attack reaches", () => {
-    // (The Bear's Overwhelming Force and the Vault Guardian Sentinel's Kinetic Slam: to Very Close.)
-    expect(attackMove("2fXzhh2qil8dw3vw", { range: "melee" }, RANGES, "Overwhelming Force")).toEqual({ kind: "move", move: { kind: "push", to: 15, knockback: true }, label: "Overwhelming Force" });
-    expect(attackMove("eXgcX8stbsTetuoU", { range: "veryClose" }).move).toEqual({ kind: "push", to: 15, knockback: true });
-    // (The Greater Water Elemental's High Tide: to Close, by the world's ranges too.)
+    // (The Bear's Overwhelming Force and the Vault Guardian Sentinel's Kinetic Slam: to Very Close, whoever it hurt only.)
+    expect(attackMove("2fXzhh2qil8dw3vw", { range: "melee" }, RANGES, "Overwhelming Force")).toEqual({ kind: "move", move: { kind: "push", to: 15, knockback: true }, label: "Overwhelming Force", hurtOnly: true });
+    expect(attackMove("eXgcX8stbsTetuoU", { range: "veryClose" })).toMatchObject({ move: { kind: "push", to: 15, knockback: true }, hurtOnly: true });
+    // (The Greater Water Elemental's High Tide: to Close, by the world's ranges too; any hit.)
     expect(attackMove("BGE42W1XPd0vpimR", { range: "veryClose" }).move).toEqual({ kind: "push", to: 30, knockback: true });
+    expect(attackMove("BGE42W1XPd0vpimR", { range: "veryClose" }).hurtOnly).toBeUndefined();
     expect(attackMove("BGE42W1XPd0vpimR", { range: "veryClose" }, SHORT).move.to).toBe(20);
     // (The Cursed Merfolk's "Get Over Here!": its Chained Trident reaches Far, and it pulls them in from there.)
     expect(attackMove("eX0tAOy7TD4wVgEY", { range: "far" }).move).toEqual({ kind: "pull", feet: 55 });
