@@ -199,7 +199,7 @@ describe("a companion and an NPC", () => {
     expect(adapter.tacticHints(clerk, spec, {})).toEqual({});
   });
 
-  test("Make it So: a companion's Stress marked, an NPC's nothing but how it ended", () => {
+  test("what a fight changes: a companion's Stress marked, an NPC's nothing but how it ended", () => {
     const fang = { actorType: "companion", hp: { value: 2, max: 3 }, resources: {}, stressMax: 0 };
     expect(describeDaggerheartOutcome(fang, { hp: 0, status: STATUS.BEATEN, system: {} })).toEqual([
       text("FFDAGGERHEART.Out.Stress", { name: text("FFDAGGERHEART.Resource.stress"), from: 1, to: 3, max: 3 }), text("FFDAGGERHEART.Out.Defeated")

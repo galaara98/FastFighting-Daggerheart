@@ -1,6 +1,6 @@
 /**
  * Daggerheart adapter: reads the Foundryborne Daggerheart system's characters and adversaries into CombatantSpecs, and
- * commits outcomes back. Written against the system's 2.10 on Foundry v14.
+ * writes a live battle back onto them, a turn at a time. Written against the system's 2.10 on Foundry v14.
  *
  * A character: its traits, Evasion, damage thresholds, Hit Points, Stress, Hope (and its most), Armor Slots, Proficiency,
  * Experiences; the weapons it has equipped (else unarmed: its Proficiency in d4s), and the actions on its features and
@@ -33,7 +33,7 @@ import { toActionSpec, toReactionSpec, traitMoves, helpAnAlly, mendsOthers, RANG
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
-import { commitDaggerheartOutcome, commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitFear, commitDaggerheartConcession } from "./commit.js";
+import { commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitDaggerheartConcession } from "./commit.js";
 import { readDaggerheartTurn } from "./read-turn.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
@@ -795,14 +795,9 @@ export class DaggerheartAdapter extends SystemAdapter {
     spec.options.system = { fear: Math.max(0, Math.min(FEAR_MAX, fear)), spending: FEAR_SPENDING[asked.spending] ? asked.spending : "steady" };
   }
 
-  /** The GM's Fear, as the fight leaves it, for Make it So's confirmation. */
+  /** The GM's Fear, as the fight leaves it, for the planner's summary of the fight. */
   describeEncounter(spec, replay) {
     return describeFear(spec.options?.system, replay);
-  }
-
-  /** The GM's Fear, written to the world. */
-  async commitEncounter(spec, replay) {
-    return commitFear(spec.options?.system, replay);
   }
 
   /**
@@ -827,10 +822,6 @@ export class DaggerheartAdapter extends SystemAdapter {
   resourceLabel(key) {
     const own = { hope: "hope", stress: "stress", fear: "fear", armor: "armor" }[key];
     return own && hasWords(`DAGGERHEART.GENERAL.${own}`) ? game.i18n.localize(`DAGGERHEART.GENERAL.${own}`) : own ? t(`Resource.${own}`) : null;
-  }
-
-  async commitOutcome(tokenDoc, spec, final, options) {
-    return commitDaggerheartOutcome(tokenDoc, spec, final, options);
   }
 
   get supportsLive() {

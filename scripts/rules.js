@@ -609,7 +609,7 @@ export const daggerheartRules = {
     return 0.5;
   },
 
-  /** What Make it So needs beyond the core's: Hope, Stress, Armor Slots, the death move, a scar, and the GM's Fear. */
+  /** What writing back needs beyond the core's: Hope, Stress, Armor Slots, the death move, a scar, and the GM's Fear. */
   capture(u) {
     return {
       hope: isPc(u) ? u.resources.hope ?? null : null,

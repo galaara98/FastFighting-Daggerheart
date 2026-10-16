@@ -1,12 +1,12 @@
 /**
- * Daggerheart "Make it So": write one simulated outcome onto a token's actor, returning an undo record.
+ * Daggerheart's live battles, written back: one turn's changes onto a token's actor, returning an undo record.
  * A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), and how it ended up (out cold from
  * Avoid Death, a scar; dead). An adversary: Hit Points and Stress marked, and defeated (dead) or gone. A companion: its
  * Stress marked (what it took), and defeated as the world says. An NPC: how it ended up (it marks nothing). The GM's Fear
- * (the world's), as the fight left it. Consumables used come off what it carries; gold or an item it gave up (a deal, a
- * demand, a theft) goes to whoever it went to.
+ * (the world's), by as much as the turn moved it. Consumables used come off what it carries; gold or an item it gave up
+ * (a deal, a demand, a theft) goes to whoever it went to. And what a fight changes, in words, for the planner.
  *
- * Undo record shape (consumed by the core's make-it-so.js):
+ * Undo record shape (consumed by the core, to rewind a turn or the whole encounter):
  *   { tokenUuid, actorUuid, actorUpdate, itemUpdates: [{id, update}], createdItems, deletedItems, createdEffects,
  *     tokenUpdate, createdActors, createdTokens, deletedTokens, statuses: [{id, active}], combatant, setting }
  */
@@ -39,7 +39,7 @@ const harmTrack = spec => (spec.actorType === "companion" ? "stress" : spec.acto
 const stressMarked = (spec, left) => Math.max(0, (spec.stressMax ?? 0) - Math.max(0, left));
 const deathMoveName = move => systemWord(`DAGGERHEART.CONFIG.DeathMoves.${{ avoid: "avoidDeath", risk: "riskItAll", blaze: "blazeOfGlory" }[move] ?? "avoidDeath"}.name`, `DeathMove.${move}`);
 
-/** Human-readable list of what will change, for the confirmation dialog. */
+/** Human-readable list of what the fight changes, for the planner's summary of it. */
 export function describeDaggerheartOutcome(spec, final) {
   const lines = [];
   const s = final.system ?? {};
@@ -132,74 +132,10 @@ async function setStatus(actor, id, active, undo, { overlay = false } = {}) {
 }
 
 /**
- * @param {TokenDocument} tokenDoc
- * @param {object} spec
- * @param {object} final
- * @param {object} options  {fledMode}
- */
-export async function commitDaggerheartOutcome(tokenDoc, spec, final, options = {}) {
-  const actor = tokenDoc.actor;
-  const undo = emptyRecord(tokenDoc, actor);
-  const s = final.system ?? {};
-  const update = {};
-  const set = (path, value) => {
-    const before = foundry.utils.getProperty(actor, path);
-    if ( before === value ) return;
-    update[path] = value;
-    undo.actorUpdate[path] = before ?? 0;
-  };
-  const track = harmTrack(spec);
-  if ( track ) set(`system.resources.${track}.value`, hpMarked(spec, final.hp));
-  if ( Number.isFinite(s.stress) ) set("system.resources.stress.value", stressMarked(spec, s.stress));
-  if ( spec.duality ) {
-    if ( Number.isFinite(s.hope) ) set("system.resources.hope.value", s.hope);
-    if ( s.scarred ) set("system.scars", (Number(actor.system.scars) || 0) + 1);
-    // Consumables used.
-    for ( const [key, left] of Object.entries(s.items ?? {}) ) {
-      const item = actor.items.get(key.slice("item:".length));
-      const used = (spec.resources?.[key] ?? 0) - left;
-      if ( !item || !(used > 0) ) continue;
-      const before = Number(item.system.quantity) || 0;
-      undo.itemUpdates.push({ id: item.id, update: { "system.quantity": before } });
-      await item.update({ "system.quantity": Math.max(0, before - used) });
-    }
-    // Armor Slots marked: on the armor it wears.
-    const armor = actor.system.armor ?? actor.items.find(i => i.type === "armor" && i.system.equipped);
-    if ( armor && s.armorMarked > 0 ) {
-      const before = Number(armor.system.armor?.current) || 0;
-      const after = Math.min(Number(armor.system.armor?.max) || 0, before + s.armorMarked);
-      if ( after !== before ) {
-        undo.itemUpdates.push({ id: armor.id, update: { "system.armor.current": before } });
-        await armor.update({ "system.armor.current": after });
-      }
-    }
-    // (The Hit Points first: the system's own Defeated automation reacts to them, and its status is then settled.)
-    if ( Object.keys(update).length ) await actor.update(update);
-    await settleDefeat(actor, final.status === STATUS.DEAD ? "dead" : final.status === STATUS.DOWN ? "unconscious" : null, undo);
-    return undo;
-  }
-  if ( Object.keys(update).length ) await actor.update(update);
-  // Killed by one who would; beaten (the table says what that means: the world's Defeated automation); knocked out by
-  // one who holds back.
-  await settleDefeat(actor, final.status === STATUS.DEAD ? "dead" : final.status === STATUS.BEATEN ? beatenStatus(spec.actorType) : final.status === STATUS.DOWN ? "unconscious" : null, undo);
-  if ( [STATUS.DEAD, STATUS.BEATEN, STATUS.DOWN].includes(final.status) ) {
-    const combatant = game.combat?.getCombatantsByToken?.(tokenDoc)?.[0];
-    if ( combatant && !combatant.defeated ) {
-      await combatant.update({ defeated: true });
-      undo.combatant = { uuid: combatant.uuid, defeated: false };
-    }
-  } else if ( final.status === STATUS.FLED && options.fledMode !== "leave" ) {
-    undo.tokenUpdate = { hidden: tokenDoc.hidden };
-    await tokenDoc.update({ hidden: true });
-  }
-  return undo;
-}
-
-/**
  * A live battle: one turn's changes (the core's engine/changes.js) written onto a token. Hit Points and Stress marked,
  * Hope, as the turn left them; Armor Slots marked, consumables used and a scar, by what this turn changed
  * (options.before); and how it ended up: out cold, dead, defeated, gone.
- * @returns {Promise<object>} an undo record (as commitDaggerheartOutcome's)
+ * @returns {Promise<object>} an undo record (its shape is at the top of this file)
  */
 export async function commitDaggerheartChanges(tokenDoc, spec, changes, final, options = {}) {
   const actor = tokenDoc.actor;
@@ -353,25 +289,10 @@ export function fearAfter(plan, replay) {
   return { before, after: unit ? unit.final.system.fear : before };
 }
 
-/** The GM's Fear, for Make it So's confirmation: {title, lines}, or null when it doesn't change. */
+/** The GM's Fear, for the planner's summary of the fight: {title, lines}, or null when it doesn't change. */
 export function describeFear(plan, replay) {
   if ( !plan ) return null;
   const { before, after } = fearAfter(plan, replay);
   if ( before === after ) return null;
   return { title: t("Encounter.Title"), lines: [t("Encounter.Fear", { name: resourceWord("fear"), from: before, to: after })] };
-}
-
-/** The GM's Fear, written to the world (its undo puts it back). */
-export async function commitFear(plan, replay) {
-  if ( !plan ) return [];
-  const { after } = fearAfter(plan, replay);
-  let now = null;
-  try {
-    now = Number(game.settings.get(SYSTEM, "ResourcesFear"));
-  } catch ( err ) {
-    return [];
-  }
-  if ( now === after ) return [];
-  await game.settings.set(SYSTEM, "ResourcesFear", after);
-  return [{ ...emptyRecord(null, null), setting: { namespace: SYSTEM, key: "ResourcesFear", value: now } }];
 }

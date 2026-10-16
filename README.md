@@ -4,7 +4,7 @@
 > - **Programming:** I am a skilled programmer by profession, but AI was used heavily as a co-pilot.
 > - **Strings:** ALL initial strings were created by AI.
 
-Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFighting), the Foundry VTT module that simulates a fight (or a tense standoff) thousands of times, tells the story of one fair draw, and commits it to the tokens with **Do it For Real Now**.
+Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFighting), the Foundry VTT module that simulates a fight (or a tense standoff) thousands of times, tells the story of one fair draw, and plays it for real on the Combat Tracker, a turn at a time, with **Do it For Real Now**.
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
@@ -130,6 +130,7 @@ Left to the core: how freely Hope and Stress are spent, what's nearby, and every
 
 ## Do it For Real Now
 
+In a live battle, each turn's changes go onto the sheets as the turn is played:
 - A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), a scar, and how it ended (unconscious from Avoid Death, dead).
 - An adversary: Hit Points and Stress marked; Defeated (or Dead, when one who would kill beat it), its combatant defeated; hidden when it fled.
 - A companion: the Stress it marked; out of the fight as the world's Defeated setting says for companions.
@@ -137,7 +138,7 @@ Left to the core: how freely Hope and Stress are spent, what's nearby, and every
 - Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
 - The GM's Fear, written to the world.
 
-Rewind This Encounter puts it all back.
+Rewind Turn takes one turn back; Rewind This Encounter, all of it.
 
 ## Not yet played
 
