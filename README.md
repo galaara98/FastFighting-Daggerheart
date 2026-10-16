@@ -137,6 +137,7 @@ In a live battle, each turn's changes go onto the sheets as the turn is played:
 - An NPC: how it ended (it has nothing to mark).
 - Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
 - The GM's Fear, written to the world.
+- Conditions put on a creature or taken off it, by the fight or by the GM in the Battle Interface: Vulnerable, Hidden and Restrained (FastFighting's "can't move" is Restrained too). Each turn the token's conditions are read back, so one the GM takes off the token is gone from the fight as well. What Daggerheart has no condition for (frightened, turned, stunned and the rest) FastFighting keeps.
 
 Rewind Turn takes one turn back; Rewind This Encounter, all of it.
 

@@ -21,8 +21,18 @@ import { part, parseFormula } from "./core.js";
 export const RANGES = Object.freeze({ melee: 5, veryClose: 15, close: 30, far: 60, veryFar: 120 });
 /** How many foes an area takes in, by its size. */
 const AREA_TARGETS = Object.freeze({ melee: 1, veryClose: 2, close: 3, far: 4, veryFar: 5 });
-/** The conditions this module plays (the engine's immobilized goes with Restrained). */
-const CONDITIONS = Object.freeze(["vulnerable", "hidden", "restrained"]);
+/**
+ * The conditions this module plays, by the system's status for each, as the engine's keys: Vulnerable, Hidden, and
+ * Restrained (it can't move but can still act: the engine's restrained and immobilized together). Read from a sheet
+ * (adapter.js), laid by an action's effects (effectOf), and written back (commit.js) by the same table.
+ */
+export const CONDITION_KEYS = Object.freeze({
+  vulnerable: Object.freeze(["vulnerable"]),
+  hidden: Object.freeze(["hidden"]),
+  restrained: Object.freeze(["restrained", "immobilized"])
+});
+/** The engine's keys for one of the system's statuses; none for any other (a defeat status, another module's). */
+export const conditionKeysOf = status => (Object.hasOwn(CONDITION_KEYS, status) ? CONDITION_KEYS[status] : []);
 
 const list = v => (Array.isArray(v) ? v : v instanceof Set ? [...v] : v && typeof v === "object" ? Object.values(v) : v ? [v] : []);
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
@@ -73,11 +83,7 @@ export function effectOf(action, effectsById = new Map()) {
   for ( const ref of list(action.effects) ) {
     const e = effectsById.get(ref?._id ?? ref);
     if ( !e ) continue;
-    for ( const s of e.statuses ?? [] ) {
-      if ( !CONDITIONS.includes(s) ) continue;
-      conditions[s] = 1;
-      if ( s === "restrained" ) conditions.immobilized = 1;
-    }
+    for ( const s of e.statuses ?? [] ) for ( const k of conditionKeysOf(s) ) conditions[k] = 1;
     for ( const c of e.changes ?? [] ) {
       const key = String(c.key ?? "");
       const v = num(c.value);

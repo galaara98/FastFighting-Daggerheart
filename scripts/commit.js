@@ -2,7 +2,8 @@
  * Daggerheart's live battles, written back: one turn's changes onto a token's actor, returning an undo record.
  * A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), and how it ended up (out cold from
  * Avoid Death, a scar; dead). An adversary: Hit Points and Stress marked, and defeated (dead) or gone. A companion: its
- * Stress marked (what it took), and defeated as the world says. An NPC: how it ended up (it marks nothing). The GM's Fear
+ * Stress marked (what it took), and defeated as the world says. An NPC: how it ended up (it marks nothing). Any of them:
+ * the conditions it gained or lost (Vulnerable, Hidden, Restrained), as the system's statuses. The GM's Fear
  * (the world's), by as much as the turn moved it. Consumables used come off what it carries; gold or an item it gave up
  * (a deal, a demand, a theft) goes to whoever it went to. And what a fight changes, in words, for the planner.
  *
@@ -12,6 +13,7 @@
  */
 import { STATUS } from "./core.js";
 import { FEAR_MAX } from "./rules.js";
+import { CONDITION_KEYS } from "./actions.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
@@ -132,9 +134,25 @@ async function setStatus(actor, id, active, undo, { overlay = false } = {}) {
 }
 
 /**
+ * The conditions a turn laid or took off (the change set's, by the engine's keys), as the system's statuses
+ * (actions.js CONDITION_KEYS), read back by the same table. Restrained is the engine's restrained and immobilized
+ * both: on when either is laid; off when either comes off and neither is laid (one that can move again is no longer
+ * Restrained). The engine's others the system has no status for: the core keeps them.
+ */
+async function settleConditions(actor, conditions, undo) {
+  const laid = Object.keys(conditions?.set ?? {});
+  const lifted = conditions?.cleared ?? [];
+  for ( const [status, keys] of Object.entries(CONDITION_KEYS) ) {
+    if ( keys.some(k => laid.includes(k)) ) await setStatus(actor, status, true, undo);
+    else if ( keys.some(k => lifted.includes(k)) ) await setStatus(actor, status, false, undo);
+  }
+}
+
+/**
  * A live battle: one turn's changes (the core's engine/changes.js) written onto a token. Hit Points and Stress marked,
  * Hope, as the turn left them; Armor Slots marked, consumables used and a scar, by what this turn changed
- * (options.before); and how it ended up: out cold, dead, defeated, gone.
+ * (options.before); the conditions laid or taken off (the GM's in the Battle Interface too); and how it ended up: out
+ * cold, dead, defeated, gone.
  * @returns {Promise<object>} an undo record (its shape is at the top of this file)
  */
 export async function commitDaggerheartChanges(tokenDoc, spec, changes, final, options = {}) {
@@ -178,6 +196,8 @@ export async function commitDaggerheartChanges(tokenDoc, spec, changes, final, o
   }
   // (The Hit Points first: the system's own Defeated automation reacts to them, and its status is then settled.)
   if ( Object.keys(update).length ) await actor.update(update);
+  // The conditions it gained or lost: Vulnerable, Hidden, Restrained.
+  if ( changes.conditions ) await settleConditions(actor, changes.conditions, undo);
   if ( changes.status ) {
     const to = changes.status.to;
     const want = to === STATUS.DEAD ? "dead" : to === STATUS.BEATEN ? beatenStatus(spec.actorType) : to === STATUS.DOWN ? "unconscious" : null;

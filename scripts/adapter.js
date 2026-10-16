@@ -29,7 +29,7 @@
  */
 import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, traitMoves, helpAnAlly, mendsOthers, RANGES } from "./actions.js";
+import { toActionSpec, toReactionSpec, traitMoves, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -156,15 +156,18 @@ function harmOf(sys, { thresholds, armor = 0, minion = 0 } = {}) {
 /** Conditions it's immune to (the sheet's rules). */
 const conditionImmune = sys => Object.entries(sys.rules?.conditionImmunities ?? {}).filter(([, v]) => v).map(([k]) => k);
 
-/** Conditions it starts with (Vulnerable, Hidden, Restrained). */
+/**
+ * Conditions it has (Vulnerable, Hidden, Restrained), as the engine's keys (actions.js CONDITION_KEYS: Restrained is
+ * the engine's restrained and immobilized). Read at the start, and again each turn of a live battle (readLiveState).
+ */
 function startingConditions(actor) {
   const out = {};
-  for ( const s of actor.statuses ?? [] ) {
-    if ( s === "vulnerable" || s === "hidden" ) out[s] = 1;
-    if ( s === "restrained" ) Object.assign(out, { restrained: 1, immobilized: 1 });
-  }
+  for ( const s of actor.statuses ?? [] ) for ( const k of conditionKeysOf(s) ) out[k] = 1;
   return out;
 }
+
+/** The engine's keys Daggerheart's sheets carry: those of its conditions. */
+const CARRIED = new Set(Object.values(CONDITION_KEYS).flat());
 
 /** A domain's name, the system's (DAGGERHEART.GENERAL.Domain.valor.label), else this module's. */
 const domainName = k => systemWord(`DAGGERHEART.GENERAL.Domain.${k}.label`, `Domain.${k}`);
@@ -854,6 +857,28 @@ export class DaggerheartAdapter extends SystemAdapter {
   /** A live battle: one turn's changes (commit.js commitDaggerheartChanges). */
   async commitChanges(tokenDoc, spec, changes, final, options) {
     return commitDaggerheartChanges(tokenDoc, spec, changes, final, options);
+  }
+
+  /**
+   * The engine's conditions Daggerheart's sheets carry: Vulnerable, Hidden and Restrained (the engine's restrained and
+   * immobilized both), written as the system's status (commit.js) and read back as the same keys. Any other (the
+   * engine's frightened, its unconscious: the system's is how a fight ended, not a condition to lay) the core keeps.
+   */
+  sheetCarries(key) {
+    return CARRIED.has(key);
+  }
+
+  /**
+   * Daggerheart's own name for one of its conditions (its status and the engine's key are the same word); none for any
+   * other, the engine's immobilized too (the system's Restrained is more than that).
+   */
+  conditionLabel(key) {
+    return Object.hasOwn(CONDITION_KEYS, key) ? conditionName(key) : null;
+  }
+
+  /** Daggerheart's conditions (on or off: none is counted), then the core's. */
+  conditionChoices() {
+    return [...Object.keys(CONDITION_KEYS).map(key => ({ key })), ...super.conditionChoices()];
   }
 
   /** What a live turn did to the GM's Fear. */
