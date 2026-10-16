@@ -7,7 +7,8 @@
  * the domain cards in its loadout. It rolls the Duality Dice.
  * An adversary: its type and tier, Difficulty, thresholds, Hit Points, Stress, its standard attack (a Horde's lesser one
  * once it has marked half its Hit Points), the actions of its action features (a Fear feature costs the GM a Fear; one
- * of the SRD's that knocks a foe back, pulls it in, knocks it over or seizes it is a maneuver: actions.js featureMove),
+ * of the SRD's that knocks a foe back, pulls it in, knocks it over or seizes it is a maneuver: actions.js featureMove;
+ * one that knocks back or pulls in whoever its standard attack hits, a rider on that attack: attackMove),
  * and its reaction features that harm whoever hurt it (actions.js toReactionSpec). A Minion falls to any damage
  * (Minion (X): each X damage another of its kind falls too); a Solo with Relentless (X) can be spotlit X times a GM
  * turn. It rolls a d20.
@@ -32,7 +33,7 @@
  */
 import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, traitMoves, featureMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
+import { toActionSpec, toReactionSpec, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -383,12 +384,15 @@ export class DaggerheartAdapter extends SystemAdapter {
     const actions = [];
     if ( sys.attack ) {
       const attack = plain(sys.attack);
+      // (One of the SRD's features that knocks back or pulls in whoever its standard attack hits, by its id: a rider on it.)
+      const moves = features.map(f => attackMove(f.id, attack, r, f.name)).filter(Boolean);
+      const riding = spec => (spec && moves.length && ["strike", "spell-attack"].includes(spec.kind) ? { ...spec, effects: [...(spec.effects ?? []), ...moves] } : spec);
       const horde = type === "horde" && sys.typeData?.hordeDamage;
-      const full = toActionSpec(attack, { ...common, id: `${id}.attack`, label: attack.name, horde: horde ? "full" : null });
+      const full = riding(toActionSpec(attack, { ...common, id: `${id}.attack`, label: attack.name, horde: horde ? "full" : null }));
       if ( full ) actions.push(full);
       if ( horde ) {
         const lesser = { ...attack, damage: { ...attack.damage, main: { ...attack.damage.main, value: { custom: { enabled: true, formula: sys.typeData.hordeDamage } } } } };
-        const spec = toActionSpec(lesser, { ...common, id: `${id}.attack.horde`, label: attack.name, horde: "reduced" });
+        const spec = riding(toActionSpec(lesser, { ...common, id: `${id}.attack.horde`, label: attack.name, horde: "reduced" }));
         if ( spec ) actions.push(spec);
       }
     }
@@ -396,7 +400,8 @@ export class DaggerheartAdapter extends SystemAdapter {
     for ( const item of features ) {
       const form = item.system.featureForm;
       // (A passive feature is on its sheet already, its effects in its numbers; what its actions do comes about as its
-      // words say, which the engine can't tell. A reaction feature counting down to something isn't an answer to a blow.)
+      // words say, which the engine can't tell; one of the SRD's that moves whoever its standard attack hits is on that
+      // attack, above. A reaction feature counting down to something isn't an answer to a blow.)
       if ( form === "reaction" ) {
         const all = [...(item.system.actions ?? [])].map(plain);
         if ( all.some(a => a.type === "countdown") ) continue;

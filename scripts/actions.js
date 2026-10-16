@@ -13,8 +13,8 @@
  * (Melee, Very Close, Close, Far, Very Far), in feet. An adversary's reaction feature that harms whoever hurt it is one
  * of the engine's reactions (toReactionSpec). An SRD adversary's feature that knocks a foe back, pulls it in, knocks it
  * over or seizes it (known by its id: FEATURE_MOVES) is one of the core's maneuvers (featureMove), as are the trait
- * moves anyone can make (traitMoves). Other kinds of action (summons, countdowns, macros, beastforms) aren't
- * played.
+ * moves anyone can make (traitMoves); one that does it with its standard attack, a rider on that attack (attackMove).
+ * Other kinds of action (summons, countdowns, macros, beastforms) aren't played.
  * Pure: no Foundry globals.
  */
 import { part, parseFormula } from "./core.js";
@@ -45,9 +45,13 @@ export const conditionKeysOf = status => (Object.hasOwn(CONDITION_KEYS, status) 
  *  - in: pulled into Melee range: a drag;
  *  - maneuver: what it is, where it doesn't move anyone (knocked over, Vulnerable: a trip; seized and held, Restrained:
  *    a grapple; wrapped and squeezed: constrict).
- * action: only that one of its actions (the rest do something else). Not here: what only answers a blow, or comes with
- * its standard attack (a passive's or a reaction's knockback); what moves a foe some other way (thrown out of an area,
- * or as the GM chooses).
+ * action: only that one of its actions (the rest do something else). attack: it comes with the adversary's standard
+ * attack instead (a passive's knockback, or a reaction's to its own standard attack hitting): a rider on that attack
+ * (attackMove), not a maneuver of its own; a reaction's Stress isn't paid (the core's riders on a blow are free).
+ * A knockback (to, by) is a collision where it's stopped short (rules.js collisionDamage); a pull isn't.
+ * Not here: what only answers a blow (Vengeful Fate's knockback: the core's reactions don't move anyone); what costs
+ * the GM a Fear on a standard attack (the Elephant's Toss); what moves a foe some other way (thrown out of an area, or
+ * as the GM chooses).
  */
 const FEATURE_MOVES = Object.freeze({
   CSrzB2SNFXb3Y5b6: { to: "close" }, // Banshee: Wail of Despair (a failed reaction roll)
@@ -83,7 +87,11 @@ const FEATURE_MOVES = Object.freeze({
   bSG0fOnMCgOFVdpP: { maneuver: "grapple" }, // Cephilith Abomination: Bear Hug
   "0BirBknShzjOvSdz": { maneuver: "grapple" }, // Harbinger of Famine: Too Many Mouths
   bkNqFMvqT2qnOH9E: { maneuver: "constrict" }, // Lamia: Constriction
-  "2jD66IGYZIZF385K": { maneuver: "constrict", action: "SazYQVwEPYDJQwse" } // Water Mother: Constrict (its attack)
+  "2jD66IGYZIZF385K": { maneuver: "constrict", action: "SazYQVwEPYDJQwse" }, // Water Mother: Constrict (its attack)
+  "2fXzhh2qil8dw3vw": { to: "veryClose", attack: true }, // Bear: Overwhelming Force (a passive: whoever marks Hit Points from it)
+  eXgcX8stbsTetuoU: { to: "veryClose", attack: true }, // Vault Guardian Sentinel: Kinetic Slam (a passive: whoever it damages)
+  BGE42W1XPd0vpimR: { to: "close", attack: true }, // Greater Water Elemental: High Tide (a reaction, for a Stress)
+  eX0tAOy7TD4wVgEY: { in: true, attack: true } // Cursed Merfolk: "Get Over Here!" (a reaction, for a Stress; its attack for a Fear isn't played)
 });
 
 const list = v => (Array.isArray(v) ? v : v instanceof Set ? [...v] : v && typeof v === "object" ? Object.values(v) : v ? [v] : []);
@@ -97,22 +105,44 @@ export function reachOf(key, ranges = RANGES) {
   return Number.isFinite(feet) ? { melee: false, range: { increment: feet, max: feet, noPenalty: true } } : null;
 }
 
+/** Pulled into Melee range: from as far as it reaches to beside the one pulling. */
+const pullFrom = (reach, ranges) => ({ kind: "pull", feet: Math.max(ranges.melee, reach - ranges.melee) });
+
 /**
  * What one of an SRD adversary's features does to where a foe stands (FEATURE_MOVES), for one of its actions:
  * {maneuver, move} (the core's: maneuvers.js), or null. In feet, by the ranges in play, from where the feature reaches
  * (its area's size, else its range): knocked back to a band, as far as that band is past it (from Melee, where the
  * feature reaches that far already: the Banshee's wail, within Close, sends each to the edge of Close); by a band, that
- * band's distance; pulled in, from as far as it reaches to beside the one pulling.
+ * band's distance; pulled in, from as far as it reaches to beside the one pulling. A knockback is marked so
+ * (knockback: rules.js collisionDamage). Null for one that comes with its standard attack (attackMove).
  */
 export function featureMove(featureId, action, ranges = RANGES) {
   const m = Object.hasOwn(FEATURE_MOVES, featureId ?? "") ? FEATURE_MOVES[featureId] : null;
-  if ( !m || (m.action && m.action !== (action?._id ?? action?.id)) ) return null;
+  if ( !m || m.attack || (m.action && m.action !== (action?._id ?? action?.id)) ) return null;
   const reach = ranges[list(action?.areas)[0]?.size ?? action?.range] ?? ranges.melee;
-  if ( m.in ) return { maneuver: "drag", move: { kind: "pull", feet: Math.max(ranges.melee, reach - ranges.melee) } };
+  if ( m.in ) return { maneuver: "drag", move: pullFrom(reach, ranges) };
   const band = m.to ?? m.by;
   if ( !band ) return { maneuver: m.maneuver };
   const from = m.by ? 0 : reach < ranges[band] ? reach : ranges.melee;
-  return { maneuver: ranges[band] > ranges.close ? "fling" : "shove", move: { kind: "push", feet: ranges[band] - from } };
+  return { maneuver: ranges[band] > ranges.close ? "fling" : "shove", move: { kind: "push", feet: ranges[band] - from, knockback: true } };
+}
+
+/**
+ * What one of an SRD adversary's features does with its standard attack (FEATURE_MOVES, attack): a rider on that
+ * attack's hit ({kind: "move", move, label}: the core's), or null. Knocked back to a band: pushed until it's that far
+ * off (already there or farther, nowhere); pulled in, from as far as the attack reaches. On every hit: the Bear's
+ * knocks back whoever marks Hit Points from it, which an Armor Slot may spare; the rider can't tell.
+ * @param {string} featureId  the feature's id
+ * @param {object} attack     the adversary's standard attack (its range)
+ * @param {object} ranges     the ranges in play, in feet
+ * @param {string} label      the feature's name
+ */
+export function attackMove(featureId, attack, ranges = RANGES, label = "") {
+  const m = Object.hasOwn(FEATURE_MOVES, featureId ?? "") ? FEATURE_MOVES[featureId] : null;
+  if ( !m?.attack ) return null;
+  const reach = ranges[attack?.range] ?? ranges.melee;
+  if ( m.in ) return { kind: "move", move: pullFrom(reach, ranges), label };
+  return m.to ? { kind: "move", move: { kind: "push", to: ranges[m.to], knockback: true }, label } : null;
 }
 
 /**

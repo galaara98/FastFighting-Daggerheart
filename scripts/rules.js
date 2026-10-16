@@ -20,6 +20,7 @@
  * (the Duality Dice: Hope to the partner, Fear to the GM), and it acts at the end of the round.
  * Reactions: only a feature's (an adversary's that answers being hurt, actions.js toReactionSpec), one a round.
  * A fall from a height (shoved over a ledge: fallDamage): by the range it falls, the SRD's guide; nobody lands prone.
+ * A knockback stopped short by a wall or someone in the way (collisionDamage): the SRD's guide's collision.
  *
  * Death moves (onDropped): a player character whose last Hit Point is marked chooses, as its playstyles lean (else
  * its nerve): Avoid Death (out cold; its Hope die at or under its level, a scar), Risk It All (the Duality Dice: Hope
@@ -462,7 +463,7 @@ export const daggerheartRules = {
     return action.horde === "full" ? marked < u.spec.hordeHp : marked >= u.spec.hordeHp;
   },
 
-  /* A fall from a height --------------------------------------------------- */
+  /* A fall from a height, a collision -------------------------------------- */
   /**
    * A fall (over a ledge, shoved: the core's forced movement), by the range it falls, in feet by the system's ranges
    * (the SRD's guide): from Very Close range 1d10+3 physical damage, from Close 1d20+5, from Far or farther 1d100+15
@@ -475,6 +476,18 @@ export const daggerheartRules = {
   },
   /** Daggerheart has no prone: nobody lands that way. */
   fallProne: false,
+  /**
+   * A collision (the core's forced movement, stopped short by a wall or by someone in the way): the SRD's guide, for
+   * one that collides at a dangerous speed, is 1d20+5 direct physical damage. Here that's a knockback (an adversary's
+   * feature: actions.js marks its move so); a shove or a pull isn't that fast. A feature's own collision damage, on its
+   * move, comes first. Only the one moved takes it: the SRD says nothing of whoever it hits. Direct damage can't be
+   * lessened by an Armor Slot, but the core's damage carries only its type: here it's plain physical, an Armor Slot and
+   * all.
+   */
+  collisionDamage(t, { move = null } = {}) {
+    if ( Array.isArray(move?.collision) ) return move.collision;
+    return move?.knockback ? [part([{ n: 1, faces: 20 }], 5, "physical")] : [];
+  },
 
   /* Falling ---------------------------------------------------------------- */
   /**
