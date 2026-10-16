@@ -14,6 +14,7 @@
  * of the engine's reactions (toReactionSpec). An SRD adversary's feature that knocks a foe back, pulls it in, knocks it
  * over or seizes it (known by its id: FEATURE_MOVES) is one of the core's maneuvers (featureMove), as are the trait
  * moves anyone can make (traitMoves); one that does it with its standard attack, a rider on that attack (attackMove).
+ * An attack shown with a creature's own body (bodyIcon) is a natural one, needing no free hands.
  * Other kinds of action (summons, countdowns, macros, beastforms) aren't played.
  * Pure: no Foundry globals.
  */
@@ -326,6 +327,14 @@ export function toActionSpec(action, ctx) {
       return null;
   }
 }
+
+/**
+ * Foundry's icons for a creature's own body (claws, fangs, a tail, tentacles, a hoof or a horn, a fist), by where in
+ * Foundry's icon library the system's adversaries take them from: an attack shown with one is a natural attack, which
+ * needs no free hands. A weapon's icon, a spell's, isn't one.
+ */
+const BODY_ICON = /^icons\/(?:creatures\/|commodities\/(?:biological|bones|claws)\/|skills\/melee\/unarmed-|magic\/earth\/strike-fist)/;
+export const bodyIcon = img => BODY_ICON.test(String(img ?? ""));
 
 /**
  * A reaction feature's action as one of the engine's reactions (the core's responses.js), or null when it isn't one

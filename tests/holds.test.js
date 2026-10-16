@@ -278,3 +278,40 @@ describe("tied up, and spells", () => {
     expect(daggerheartRules.handsKnown).toBeUndefined();
   });
 });
+
+describe("natural attacks need no free hands", () => {
+  const beastly = (img, extra = {}) => {
+    const actor = raider();
+    actor.system.attack = { ...actor.system.attack, name: "Attack", img };
+    Object.assign(actor.system, extra);
+    return actor;
+  };
+  const attackOf = async actor => (await new DaggerheartAdapter().toCombatantSpec(tokenOf(actor))).actions[0];
+
+  test("one shown with its own body (claws, fangs, a tail, a fist, a horn): none; a weapon's, as the core has it", async () => {
+    for ( const img of ["icons/creatures/claws/claw-straight-brown.webp", "icons/creatures/abilities/mouth-teeth-long-red.webp", "icons/commodities/biological/tail-lizard-red.webp",
+      "icons/commodities/bones/horn-drinking-white.webp", "icons/skills/melee/unarmed-punch-fist.webp", "icons/magic/earth/strike-fist-stone.webp"] ) {
+      const a = await attackOf(beastly(img));
+      expect(a.hands).toBe(0);
+      expect(holds.needsHands(daggerheartRules, a)).toBe(false);
+    }
+    for ( const img of ["icons/weapons/daggers/dagger-twin-green.webp", "icons/skills/melee/sword-shield-stylized-white.webp", "", undefined] ) {
+      const a = await attackOf(beastly(img));
+      expect(a.hands).toBeUndefined();
+      expect(holds.needsHands(daggerheartRules, a)).toBe(true);
+    }
+  });
+
+  test("a beast's, whatever its icon; its features' too; a Horde's lesser attack as its full one; a companion's", async () => {
+    const wolf = beastly("icons/skills/melee/blood-slash-foam-red.webp", { type: "skulk", motivesAndTactics: "Hunt prey, keep to the pack" });
+    wolf.items = [{ id: "f1", type: "feature", name: "Pounce", system: { featureForm: "action", actions: [{ _id: "p", type: "attack", range: "melee", target: { type: "any", amount: 1 }, roll: { type: "attack" }, cost: [], damage: sword.damage }] }, effects: [] }];
+    const spec = await new DaggerheartAdapter().toCombatantSpec(tokenOf(wolf));
+    expect(spec.actions.map(a => a.hands)).toEqual([0, 0]);
+    const pack = beastly("icons/creatures/abilities/mouth-teeth-long-red.webp", { type: "horde", typeData: { hordeDamage: "1d4" } });
+    expect((await new DaggerheartAdapter().toCombatantSpec(tokenOf(pack))).actions.filter(a => a.horde).map(a => a.hands)).toEqual([0, 0]);
+    const fang = { id: "c1", uuid: "Actor.c1", name: "Fang", type: "companion", img: "", statuses: new Set(), items: [],
+      system: { partner: null, evasion: 12, proficiency: 1, experiences: {}, resources: { stress: { max: 3, value: 0 } }, levelData: { level: { current: 1 } }, rules: {},
+        attack: { ...sword, name: "Bite", roll: { type: "attack", bonus: 2 } } } };
+    expect(await attackOf(fang)).toMatchObject({ kind: "strike", hands: 0 });
+  });
+});

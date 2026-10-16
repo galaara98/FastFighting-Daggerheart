@@ -9,7 +9,8 @@
  * once it has marked half its Hit Points), the actions of its action features (a Fear feature costs the GM a Fear; one
  * of the SRD's that knocks a foe back, pulls it in, knocks it over or seizes it is a maneuver: actions.js featureMove;
  * one that knocks back or pulls in whoever its standard attack hits, a rider on that attack: attackMove),
- * and its reaction features that harm whoever hurt it (actions.js toReactionSpec). A Minion falls to any damage
+ * and its reaction features that harm whoever hurt it (actions.js toReactionSpec). A natural attack (a beast's, or one
+ * shown with its claws, fangs or fists: actions.js bodyIcon) needs no free hands. A Minion falls to any damage
  * (Minion (X): each X damage another of its kind falls too); a Solo with Relentless (X) can be spotlit X times a GM
  * turn. It rolls a d20.
  * A companion (a Beastbound ranger's): its Evasion, Experiences and attack (its partner's Spellcast and Proficiency),
@@ -33,7 +34,7 @@
  */
 import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
+import { toActionSpec, toReactionSpec, bodyIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -381,6 +382,9 @@ export class DaggerheartAdapter extends SystemAdapter {
     const relentless = type === "solo" ? countIn(features.find(f => countIn(f.name) && [...(f.system.actions ?? [])].some(a => [...(a.cost ?? [])].some(c => c.key === "fear")))?.name) : 0;
     const attackBonus = num(sys.attack?.roll?.bonus);
     const common = { pc: false, attackBonus, difficulty: num(sys.difficulty), critOn: num(sys.criticalThreshold) || 20, ranges: r };
+    const beast = isBeast(sys.motivesAndTactics, sys.type);
+    // (A natural attack needs no free hands: a beast's, or one shown with its own body, claws or fangs, a fist.)
+    const hands = img => (beast || bodyIcon(img) ? { hands: 0 } : {});
     const actions = [];
     if ( sys.attack ) {
       const attack = plain(sys.attack);
@@ -389,11 +393,11 @@ export class DaggerheartAdapter extends SystemAdapter {
       const riding = spec => (spec && moves.length && ["strike", "spell-attack"].includes(spec.kind) ? { ...spec, effects: [...(spec.effects ?? []), ...moves] } : spec);
       const horde = type === "horde" && sys.typeData?.hordeDamage;
       const full = riding(toActionSpec(attack, { ...common, id: `${id}.attack`, label: attack.name, horde: horde ? "full" : null }));
-      if ( full ) actions.push(full);
+      if ( full ) actions.push({ ...full, ...hands(attack.img) });
       if ( horde ) {
         const lesser = { ...attack, damage: { ...attack.damage, main: { ...attack.damage.main, value: { custom: { enabled: true, formula: sys.typeData.hordeDamage } } } } };
         const spec = riding(toActionSpec(lesser, { ...common, id: `${id}.attack.horde`, label: attack.name, horde: "reduced" }));
-        if ( spec ) actions.push(spec);
+        if ( spec ) actions.push({ ...spec, ...hands(attack.img) });
       }
     }
     const reactions = [];
@@ -420,10 +424,9 @@ export class DaggerheartAdapter extends SystemAdapter {
         const moves = featureMove(item.id, data, r);
         const spec = toActionSpec(data, { ...common, id: `${id}.${item.id}.${data._id}`, label: item.name, effectsById: effectsOf(item), moves });
         // (An adversary's own features: its specialties.)
-        if ( spec ) actions.push({ ...spec, feature: true });
+        if ( spec ) actions.push({ ...spec, feature: true, ...hands(data.img) });
       }
     }
-    const beast = isBeast(sys.motivesAndTactics, sys.type);
     const derived = this.deriveTraits(actor);
     // (Its best Experience: what it brings to a roll that isn't an attack, a pitch or noticing a fight.)
     const best = experiencesOf(sys)[0] ?? null;
@@ -545,7 +548,8 @@ export class DaggerheartAdapter extends SystemAdapter {
       const source = plain(sys.attack);
       const attack = { ...source, range: sys.attack.range, roll: { ...source.roll, bonus: num(sys.attack.roll?.bonus) }, damage: sys.attack.damage };
       const spec = toActionSpec(attack, { pc: false, proficiency: Math.max(1, num(sys.proficiency)), ranges: r, id: `${id}.attack`, label: attack.name });
-      if ( spec ) actions.push(spec);
+      // (An animal's: its own body, no free hands.)
+      if ( spec ) actions.push({ ...spec, hands: 0 });
     }
     const experiences = experiencesOf(sys);
     const derived = this.deriveTraits(actor);
