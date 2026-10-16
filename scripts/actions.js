@@ -9,6 +9,7 @@
  *  - healing that clears Hit Points: a heal; that gives Hope or clears Stress instead, a buff that gains them (gainSpec);
  *  - effect: what its effects do that the engine knows (bonuses to rolls and damage, Evasion, the conditions
  *    Vulnerable, Hidden and Restrained), on itself, a friend or a foe. Restrained laid on a foe says how it's broken.
+ *  - summon: the core's summoning (toSummonSpec), once the adapter has read the creatures it calls.
  * A spellcast attack is a spell attack (its caster counts as one). Its cost (Hope, Stress, Fear, an Armor Slot; the first
  * of them) and its uses carry over. Ranges are the system's
  * (Melee, Very Close, Close, Far, Very Far), in feet. An adversary's reaction feature that harms whoever hurt it is one
@@ -16,10 +17,10 @@
  * over or seizes it (known by its id: FEATURE_MOVES) is one of the core's maneuvers (featureMove), as are the trait
  * moves anyone can make (traitMoves); one that does it with its standard attack, a rider on that attack (attackMove).
  * An attack shown with a creature's own body (bodyIcon) is a natural one, needing no free hands.
- * Other kinds of action (summons, countdowns, macros, beastforms) aren't played.
+ * Other kinds of action (countdowns, macros, beastforms) aren't played.
  * Pure: no Foundry globals.
  */
-import { part, parseFormula, meanPart } from "./core.js";
+import { part, parseFormula, parseTypedFormula, meanPart } from "./core.js";
 
 /** The system's ranges, in feet, unless its Range Measurement rule says otherwise. */
 export const RANGES = Object.freeze({ melee: 5, veryClose: 15, close: 30, far: 60, veryFar: 120 });
@@ -371,6 +372,54 @@ function gainSpec(action, ctx, { base, where, area }) {
   const outcome = { resources, label: ctx.label ?? action.name ?? "" };
   if ( action.target?.type === "self" || action.range === "self" ) return { ...base, kind: "buff", targets: "self", outcome };
   return { ...base, kind: "buff", outcome, ...(where ?? reachOf("melee", ctx.ranges)), ...area };
+}
+
+/** The most of one creature a summoning calls (the core's own summonings call no more). */
+const SUMMON_MOST = 8;
+
+/**
+ * How many of a creature a summon action calls: its count's formula ("3", "1d4", "@partySize * 2") on average, its
+ * @partySize the party's size; any other figure of the sheet's counts nothing. Between none and SUMMON_MOST.
+ */
+export function summonCount(formula, { partySize = 0 } = {}) {
+  const text = String(formula ?? "").trim() || "1";
+  const filled = text.replace(/@partySize\b/gi, String(Math.max(0, Number(partySize) || 0))).replace(/@[\w.]+/g, "0");
+  const n = Math.round(parseTypedFormula(filled).reduce((s, p) => s + meanPart(p), 0));
+  return Math.max(0, Math.min(SUMMON_MOST, n));
+}
+
+/**
+ * The SRD's summoning features whose data leaves out the Fear their words cost, by the feature's id in the system's
+ * compendium (kept when it's imported, or copied): the Fear each costs.
+ */
+const SUMMON_FEAR = Object.freeze({
+  IWtpuQCuV82lOSry: 2, // Head Vampire: The Hunt Is On
+  XxXOrFovbCz9zFxR: 1, // Arch-Necromancer: Open the Gates of Death
+  yKWQLL3qsEZlQjyb: 1, // Dryad: Grow Saplings
+  OWUM3eFiZrIn0Bjd: 2, // Divine Usurpation: Difilers Abound
+  TlX8yI5OWVmOK3cF: 1, // Megastorm: Stormheart
+  M2Iudy8tNp2tR4rO: 1 // Abandoned Mine: Into the Spider's Web
+});
+
+/**
+ * A summon action (the system's "summon") as the core's summoning (behavior/summons.js), given the creatures it calls
+ * (their CombatantSpecs, as many of each as it calls: the adapter reads them): its cost and uses as any action's (an SRD
+ * feature's Fear its data leaves out, SUMMON_FEAR); how far off they appear, its range in feet (the core's, where it
+ * gives none, or only itself); no time set, as Daggerheart sets none (they stay until they're beaten). Null when it
+ * calls nobody.
+ * @param {object} action      the system's action data
+ * @param {object} ctx         {id, label, ranges, feature (the feature's id)}
+ * @param {object[]} creatures their CombatantSpecs
+ */
+export function toSummonSpec(action, ctx, creatures = []) {
+  if ( !creatures.length ) return null;
+  const fear = Object.hasOwn(SUMMON_FEAR, ctx.feature ?? "") ? SUMMON_FEAR[ctx.feature] : 0;
+  const cost = costOfAction(action);
+  const base = { id: ctx.id, name: ctx.label ?? action.name ?? "", ...(cost.resource || !fear ? cost : { resource: "fear", resourceCost: fear, shared: "fear" }) };
+  const uses = num(action.uses?.max);
+  if ( uses > 0 ) base.uses = uses;
+  const feet = (ctx.ranges ?? RANGES)[action.range];
+  return { ...base, kind: "summon", creatures, ...(Number.isFinite(feet) ? { range: { increment: feet, max: feet, noPenalty: true } } : {}) };
 }
 
 /**

@@ -10,7 +10,8 @@
  * of the SRD's that knocks a foe back, pulls it in, knocks it over or seizes it is a maneuver: actions.js featureMove;
  * one that knocks back or pulls in whoever its standard attack hits, a rider on that attack: attackMove),
  * and its reaction features that harm whoever hurt it (actions.js toReactionSpec). A natural attack (a beast's, or one
- * shown with its claws, fangs or fists: actions.js bodyIcon) needs no free hands. A Minion falls to any damage
+ * shown with its claws, fangs or fists: actions.js bodyIcon) needs no free hands. A summon action, on an adversary's,
+ * an environment's or a character's feature, calls the creatures it names (#summonOf). A Minion falls to any damage
  * (Minion (X): each X damage another of its kind falls too); a Solo with Relentless (X) can be spotlit X times a GM
  * turn. It rolls a d20.
  * A companion (a Beastbound ranger's): its Evasion, Experiences and attack (its partner's Spellcast and Proficiency),
@@ -34,7 +35,7 @@
  */
 import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, bodyIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
+import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -231,6 +232,26 @@ function specialtiesOf(actor, spec) {
 /** "Minion (3)", "Relentless (2)": the number a feature's name carries. */
 const countIn = name => Number(/\((\d+)\)\s*$/.exec(String(name ?? ""))?.[1]) || 0;
 
+/** Does a feature count down to what it does (a countdown among its actions)? Then that comes when it runs out. */
+const countsDown = item => valuesOf(item?.system?.actions).some(a => a?.type === "countdown");
+
+/** A document by its UUID (Foundry's own lookup), or null. */
+async function byUuid(uuid) {
+  try {
+    const find = globalThis.foundry?.utils?.fromUuid ?? globalThis.fromUuid;
+    return uuid && find ? await find(uuid) : null;
+  } catch ( err ) {
+    return null;
+  }
+}
+
+/** The party's size, as a summoning counts it (@partySize): the system's party's members, else the world's player characters. */
+function partySize() {
+  const members = globalThis.game?.actors?.party?.system?.partyMembers?.length;
+  if ( members > 0 ) return members;
+  return globalThis.game?.actors?.filter?.(a => a.type === "character" && a.hasPlayerOwner)?.length ?? 0;
+}
+
 export class DaggerheartAdapter extends SystemAdapter {
   static systemId = SYSTEM;
 
@@ -246,19 +267,50 @@ export class DaggerheartAdapter extends SystemAdapter {
     return !!actor && ["character", "adversary", "environment", "companion", "npc"].includes(actor.type);
   }
 
-  async toCombatantSpec(tokenDoc) {
+  /**
+   * @param {TokenDocument} tokenDoc
+   * @param {object} [options]
+   * @param {boolean} [options.summoned]   a creature a summoning calls (#summonOf), which calls nobody in turn
+   */
+  async toCombatantSpec(tokenDoc, { summoned = false } = {}) {
     const actor = tokenDoc.actor;
     if ( !this.canHandle(actor) ) return null;
     switch ( actor.type ) {
-      case "character": return this.#character(tokenDoc, actor);
-      case "environment": return this.#environment(tokenDoc, actor);
+      case "character": return this.#character(tokenDoc, actor, summoned);
+      case "environment": return this.#environment(tokenDoc, actor, summoned);
       case "companion": return this.#companion(tokenDoc, actor);
       case "npc": return this.#npc(tokenDoc, actor);
-      default: return this.#adversary(tokenDoc, actor);
+      default: return this.#adversary(tokenDoc, actor, summoned);
     }
   }
 
-  #character(tokenDoc, actor) {
+  /**
+   * A summon action (the system's "summon": the creatures it names, and a count of each) as the core's summoning
+   * (actions.js toSummonSpec): each creature read like any other from where the action keeps it (the system's
+   * compendium, or the world), as many as its count comes to (actions.js summonCount, the party's size for @partySize).
+   * A creature summoned calls nobody in turn (a Ravenous Mockery reveals another of its kind, not a third). Null when it
+   * calls nobody this module can read.
+   * @param {object} data   the action's data
+   * @param {object} ctx    {id, label, ranges, feature (its feature's id)}
+   */
+  async #summonOf(data, ctx) {
+    const creatures = [];
+    for ( const entry of valuesOf(data.summon) ) {
+      const n = summonCount(entry?.count, { partySize: partySize() });
+      const src = n > 0 ? await byUuid(entry?.actorUUID) : null;
+      if ( !this.canHandle(src) ) continue;
+      const token = { actor: src, id: `summon-${src.id}`, name: src.prototypeToken?.name ?? src.name, texture: { src: src.prototypeToken?.texture?.src ?? src.img } };
+      const spec = await this.toCombatantSpec(token, { summoned: true });
+      if ( !spec ) continue;
+      // (Where a live battle places it from; its kind as its copies in the world know it, for Minion (X).)
+      spec.sourceUuid = src.uuid;
+      if ( src.pack ) spec.kinKey = src.uuid;
+      creatures.push(...Array.from({ length: n }, () => spec));
+    }
+    return toSummonSpec(data, { ...ctx, ranges: ctx.ranges ?? ranges() }, creatures);
+  }
+
+  async #character(tokenDoc, actor, summoned = false) {
     const sys = actor.system;
     const r = ranges();
     const traits = Object.fromEntries(TRAITS.map(k => [k, num(sys.traits?.[k]?.value)]));
@@ -287,7 +339,14 @@ export class DaggerheartAdapter extends SystemAdapter {
     for ( const item of actor.items ) {
       if ( item.type === "domainCard" ? item.system.inVault : item.type !== "feature" ) continue;
       for ( const a of item.system.actions ?? [] ) {
-        const spec = toActionSpec(plain(a), { ...common, id: `${id}.${item.id}.${a.id ?? a._id}`, label: a.name && a.name !== item.name ? `${item.name}: ${a.name}` : item.name, effectsById: effectsOf(item) });
+        const label = a.name && a.name !== item.name ? `${item.name}: ${a.name}` : item.name;
+        // (A summoning, unless a countdown brings it, or it was summoned itself.)
+        if ( a.type === "summon" ) {
+          const spec = summoned || countsDown(item) ? null : await this.#summonOf(plain(a), { id: `${id}.${item.id}.${a.id ?? a._id}`, label, ranges: r, feature: item.id });
+          if ( spec ) actions.push({ ...spec, feature: true });
+          continue;
+        }
+        const spec = toActionSpec(plain(a), { ...common, id: `${id}.${item.id}.${a.id ?? a._id}`, label, effectsById: effectsOf(item) });
         // (Its own: a class, subclass, ancestry or community feature, a domain card. What "magic and specialties" means.)
         if ( spec ) actions.push({ ...spec, feature: true });
       }
@@ -369,7 +428,7 @@ export class DaggerheartAdapter extends SystemAdapter {
     };
   }
 
-  #adversary(tokenDoc, actor) {
+  async #adversary(tokenDoc, actor, summoned = false) {
     const sys = actor.system;
     const r = ranges();
     const id = tokenDoc.id;
@@ -418,8 +477,15 @@ export class DaggerheartAdapter extends SystemAdapter {
       if ( form !== "action" ) continue;
       for ( const a of item.system.actions ?? [] ) {
         const data = plain(a);
-        // (A Minion's Group Attack, many as one for a Fear, isn't played: each one attacks on its own.)
+        // (A Minion's Group Attack, many as one for a Fear, isn't played: each one attacks on its own. Nor is three of
+        // them made one for a Fear, Form Up.)
         if ( type === "minion" && [...(data.cost ?? [])].some(c => c.key === "fear") ) continue;
+        // (A summoning: the creatures it calls; unless a countdown brings them, or it was summoned itself.)
+        if ( data.type === "summon" ) {
+          const spec = summoned || countsDown(item) ? null : await this.#summonOf(data, { id: `${id}.${item.id}.${data._id}`, label: item.name, ranges: r, feature: item.id });
+          if ( spec ) actions.push({ ...spec, feature: true });
+          continue;
+        }
         // (One of the SRD's that knocks a foe back, pulls it in, knocks it over or seizes it, by its id: a maneuver.)
         const moves = featureMove(item.id, data, r);
         const spec = toActionSpec(data, { ...common, id: `${id}.${item.id}.${data._id}`, label: item.name, effectsById: effectsOf(item), moves });
@@ -486,7 +552,7 @@ export class DaggerheartAdapter extends SystemAdapter {
    * An environment (a raging river, a collapsing bridge, a haunted grove): a hazard that acts on GM turns, with its action
    * features (a Fear each, for its Fear features), reaction rolls against its Difficulty. Nobody attacks it.
    */
-  #environment(tokenDoc, actor) {
+  async #environment(tokenDoc, actor, summoned = false) {
     const sys = actor.system;
     const r = ranges();
     const id = tokenDoc.id;
@@ -498,6 +564,12 @@ export class DaggerheartAdapter extends SystemAdapter {
       if ( item.type !== "feature" || item.system.featureForm !== "action" ) continue;
       for ( const a of item.system.actions ?? [] ) {
         const data = plain(a);
+        // (What it summons, unless a countdown brings them. The core's hazards don't summon yet: it's there for when they do.)
+        if ( data.type === "summon" ) {
+          const spec = summoned || countsDown(item) ? null : await this.#summonOf(data, { id: `${id}.${item.id}.${data._id}`, label: item.name, ranges: r, feature: item.id });
+          if ( spec ) actions.push({ ...spec, feature: true });
+          continue;
+        }
         const spec = toActionSpec(data, { ...common, id: `${id}.${item.id}.${data._id}`, label: item.name, effectsById: effectsOf(item) });
         if ( spec ) actions.push({ ...spec, feature: true });
       }

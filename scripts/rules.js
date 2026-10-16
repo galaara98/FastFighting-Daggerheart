@@ -17,8 +17,9 @@
  * its thresholds say how many Hit Points it marks: under Major 1, Major 2, Severe 3 (twice Severe 4, with the Massive
  * Damage rule). A player character marks an Armor Slot to take it down a step, while it has one, for a hit worth it.
  * Stress damage marks Stress; Stress it can't mark becomes Hit Points. A Minion falls to any damage; Minion (X): each
- * X damage another of its kind falls with it. A Horde that has marked half its Hit Points or more hits for its lesser
- * damage. A companion marks one Stress for any damage, and is out of the fight at its last; its rolls are its partner's
+ * X damage another of its kind falls with it (its kind: those of its stat block on its side, those summoned since too).
+ * A Horde that has marked half its Hit Points or more hits for its lesser damage. A companion marks one Stress for any
+ * damage, and is out of the fight at its last; its rolls are its partner's
  * (the Duality Dice: Hope to the partner, Fear to the GM), and it acts at the end of the round.
  * Reactions: only a feature's (an adversary's that answers being hurt, actions.js toReactionSpec), one a round.
  * A fall from a height (shoved over a ledge: fallDamage): by the range it falls, the SRD's guide; nobody lands prone.
@@ -93,6 +94,21 @@ function clearStress(u, n = 1) {
  */
 const HOPE_WORTH = 0.3;
 const STRESS_WORTH = 0.25;
+
+/**
+ * Minions of a kind, on a side: the ones that fall with one struck hard enough (Minion (X)). One called in the middle
+ * of a fight (a Jagged Knife Lieutenant's Lackeys) joins its kind once it's there.
+ */
+function kinUp(run) {
+  const kinds = (run.dh.kinds ??= new Map());
+  for ( const u of run.units ) {
+    if ( u.kin || u.spec.adversaryType !== "minion" ) continue;
+    const key = `${u.side}|${u.spec.kinKey ?? u.spec.name}`;
+    if ( !kinds.has(key) ) kinds.set(key, []);
+    kinds.get(key).push(u);
+    u.kin = kinds.get(key);
+  }
+}
 
 /**
  * A Hope on an Experience before the dice, when one fits and it's worth it: the roll's chance of success up by WORTH
@@ -259,6 +275,8 @@ export const daggerheartRules = {
    * its action. One held where it is (Restrained, a grab, tied up) doesn't.
    */
   startTurn(run, u) {
+    // (Minions called since the last turn, with their kind.)
+    if ( run.dh ) kinUp(run);
     u.sprinting = false;
     const rush = (u.turnBehavior ?? u.ownBehavior ?? u.spec.behavior ?? {}).rush ?? 0;
     if ( !(rush > 0) || !run.prep.options.positioning || !u.spec.sprint || u.status !== STATUS.STANDING ) return null;
@@ -322,14 +340,7 @@ export const daggerheartRules = {
       if ( u.spec.companionRoll ) u.partner = run.units.find(o => o.id === u.spec.flags?.masterId && isPc(o)) ?? null;
     }
     // Minions of a kind, on a side: the ones that fall with one struck hard enough (Minion (X)).
-    const kinds = new Map();
-    for ( const u of run.units ) {
-      if ( u.spec.adversaryType !== "minion" ) continue;
-      const key = `${u.side}|${u.spec.kinKey ?? u.spec.name}`;
-      if ( !kinds.has(key) ) kinds.set(key, []);
-      kinds.get(key).push(u);
-      u.kin = kinds.get(key);
-    }
+    kinUp(run);
   },
   /**
    * The spotlight, for a round: each player character in turn (the order the dice set), a GM turn after any whose
