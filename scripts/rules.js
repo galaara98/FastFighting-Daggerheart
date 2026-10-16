@@ -412,7 +412,7 @@ export const daggerheartRules = {
    * minion (X), multiplier}. With `target` (the fight itself), Armor Slots are marked and Stress taken; without (an
    * estimate), a character with slots is reckoned to mark one against Major or worse.
    */
-  applyIwr(iwr, byType, target = null) {
+  applyIwr(iwr, byType, target = null, { direct = false } = {}) {
     const dh = iwr?.dh;
     let raw = 0;
     let stress = 0;
@@ -436,13 +436,14 @@ export const daggerheartRules = {
     if ( dh.minion && raw > 0 && target ) target.minionOverflow = Math.floor(raw / dh.minion);
     marks = Math.max(0, marks - steps);
     if ( marks === 1 && dh.minorImmune ) marks = 0;
-    if ( target ) {
+    // (Direct damage: no Armor Slot lessens it.)
+    if ( !direct && target ) {
       if ( marksArmor(target, marks) ) {
         target.resources.armor -= 1;
         target.armorMarked = (target.armorMarked ?? 0) + 1;
         marks -= 1;
       }
-    } else if ( dh.armor > 0 && marks >= 2 ) marks -= 1;
+    } else if ( !direct && dh.armor > 0 && marks >= 2 ) marks -= 1;
     marks = Math.round(marks * (dh.multiplier ?? 1));
     // Stress: what it can't mark, it marks as Hit Points.
     if ( stress > 0 ) {
@@ -478,15 +479,13 @@ export const daggerheartRules = {
   fallProne: false,
   /**
    * A collision (the core's forced movement, stopped short by a wall or by someone in the way): the SRD's guide, for
-   * one that collides at a dangerous speed, is 1d20+5 direct physical damage. Here that's a knockback (an adversary's
-   * feature: actions.js marks its move so); a shove or a pull isn't that fast. A feature's own collision damage, on its
-   * move, comes first. Only the one moved takes it: the SRD says nothing of whoever it hits. Direct damage can't be
-   * lessened by an Armor Slot, but the core's damage carries only its type: here it's plain physical, an Armor Slot and
-   * all.
+   * one that collides at a dangerous speed, is 1d20+5 direct physical damage (no Armor Slot lessens it). Here that's a
+   * knockback (an adversary's feature: actions.js marks its move so); a shove or a pull isn't that fast. A feature's own
+   * collision damage, on its move, comes first. Only the one moved takes it: the SRD says nothing of whoever it hits.
    */
   collisionDamage(t, { move = null } = {}) {
     if ( Array.isArray(move?.collision) ) return move.collision;
-    return move?.knockback ? [part([{ n: 1, faces: 20 }], 5, "physical")] : [];
+    return move?.knockback ? [{ ...part([{ n: 1, faces: 20 }], 5, "physical"), direct: true }] : [];
   },
 
   /* Falling ---------------------------------------------------------------- */

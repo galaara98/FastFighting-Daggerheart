@@ -147,9 +147,15 @@ export function attackMove(featureId, attack, ranges = RANGES, label = "") {
 
 /**
  * A damage formula's parts: its dice (as many as its Proficiency, for "prof"; else its own count, none at all for a
- * count of 0), its bonus, or its own formula. Typed physical or magical; Stress damage as "stress".
+ * count of 0), its bonus, or its own formula. Typed physical or magical; Stress damage as "stress". Direct damage (the
+ * system's damage.direct: no Armor Slot can lessen it) is marked so, for the core to say (rules.js applyIwr).
  */
 export function damagePartsOf(damage, { proficiency = 1 } = {}) {
+  const parts = basePartsOf(damage, { proficiency });
+  return damage?.direct ? parts.map(p => ({ ...p, direct: true })) : parts;
+}
+
+function basePartsOf(damage, { proficiency = 1 } = {}) {
   const main = damage?.main ?? damage?.parts?.hitPoints ?? null;
   const value = main?.value;
   if ( !value ) return [];

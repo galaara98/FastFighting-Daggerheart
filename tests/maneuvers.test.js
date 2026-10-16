@@ -174,8 +174,8 @@ describe("a fall from a height", () => {
 describe("a collision", () => {
   const collides = move => daggerheartRules.collisionDamage({}, { feetLeft: 5, into: null, move, by: null });
 
-  test("a knockback stopped short: the SRD's guide, 1d20+5 (direct physical, played as plain physical); a feature's own first", () => {
-    const guide = [part([{ n: 1, faces: 20 }], 5, "physical")];
+  test("a knockback stopped short: the SRD's guide, 1d20+5 direct physical (no Armor Slot); a feature's own first", () => {
+    const guide = [{ ...part([{ n: 1, faces: 20 }], 5, "physical"), direct: true }];
     expect(collides(featureMove("lxMzWFQOIpidX094", { type: "attack", range: "close" }).move)).toEqual(guide);
     expect(collides(attackMove("2fXzhh2qil8dw3vw", { range: "melee" }).move)).toEqual(guide);
     const own = [part([{ n: 2, faces: 6 }], 0, "physical")];
