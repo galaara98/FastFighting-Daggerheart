@@ -4,7 +4,8 @@
  * Rolls (dice.js): player characters roll the Duality Dice, adversaries a d20. A player character's action roll with
  * Hope gains it a Hope (at most its maximum); with Fear, the GM gains a Fear (at most 12); a critical (matching dice)
  * gains a Hope and clears a Stress. Before rolling it may spend a Hope on an Experience that fits, when that's worth it.
- * Reaction rolls bring neither Hope nor Fear.
+ * Reaction rolls bring neither Hope nor Fear; against something taking hold of its body (a sickness spreading), it's a
+ * Strength roll (toughSave).
  *
  * The spotlight (roundTurns): there's no initiative. Each player character takes the spotlight in turn; one whose
  * action roll fails, or goes with Fear, hands it to the GM, who spotlights an adversary (the one that has waited
@@ -400,6 +401,11 @@ export const daggerheartRules = {
   saveMultiplier(degree, save) {
     return degree >= 2 ? (save?.half ? 0.5 : 0) : 1;
   },
+  /**
+   * The reaction roll against something taking hold of its body (a sickness spreading: the core's troubles.js): a
+   * Strength roll, as the SRD's venoms, sicknesses and bitter cold call for.
+   */
+  toughSave: "strength",
   /** Critical damage: the damage as rolled, and the most its dice could show on top. */
   critical(parts) {
     return (parts ?? []).map(p => ({ ...p, flat: p.flat + p.dice.reduce((s, { n, faces }) => s + (n > 0 ? n * faces : 0), 0) }));

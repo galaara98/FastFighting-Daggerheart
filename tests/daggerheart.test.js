@@ -1,6 +1,6 @@
 /**
  * Daggerheart's rules: the Duality Dice and the d20, Hope and Fear, thresholds and Armor Slots, death moves, the
- * spotlight, and the system's actions as the engine plays them.
+ * spotlight, the reaction roll against what takes hold of the body, and the system's actions as the engine plays them.
  */
 import { describe, expect, test } from "vitest";
 import { dualityChances, d20Chances, rollDuality, rollD20, DUALITY } from "../scripts/dice.js";
@@ -8,6 +8,8 @@ import { daggerheartRules, marksFor, deathMoveOf, FEAR_MAX } from "../scripts/ru
 import { toActionSpec, toReactionSpec, damagePartsOf, costOfAction, effectOf, RANGES } from "../scripts/actions.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast } from "../scripts/traits.js";
 import { replay } from "../../FastFighting/scripts/engine/simulator.js";
+import { toughSave } from "../../FastFighting/scripts/engine/behavior/troubles.js";
+import { saveRoll } from "../../FastFighting/scripts/engine/battle-state.js";
 import { parseFormula, STATUS } from "../scripts/core.js";
 
 /** Dice that come up as listed, then the last over and over. */
@@ -365,5 +367,14 @@ describe("a fight", () => {
     const heroRolls = r.log.filter(e => e.type === "attack" && e.side === "friendly").length;
     expect(banditAttacks).toBeLessThanOrEqual(heroRolls);
     expect(rounds).toBeGreaterThan(0);
+  });
+});
+
+describe("against something taking hold of the body", () => {
+  test("a Strength reaction roll (the core's toughSave, as for a sickness spreading): the character's Strength", () => {
+    const u = { id: "u", spec: { level: 1, defenses: { ac: 12, strength: 2, instinct: 1 } }, mods: {} };
+    const run = { prep: { rules: daggerheartRules }, units: [u] };
+    expect(toughSave(run, u)).toBe("strength");
+    expect(saveRoll(run, u, toughSave(run, u)).mod).toBe(2);
   });
 });
