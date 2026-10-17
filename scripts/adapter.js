@@ -42,6 +42,7 @@ import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./aut
 import { commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitDaggerheartConcession, applyDaggerheartDamage } from "./commit.js";
 import { readDaggerheartTurn, readDaggerheartDamage } from "./read-turn.js";
 import { rollDaggerheartStrike } from "./strike-roll.js";
+import { rollDaggerheartSave, rollDaggerheartCheck } from "./check-roll.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
@@ -1018,6 +1019,23 @@ export class DaggerheartAdapter extends SystemAdapter {
    */
   async rollStrike(token, options = {}) {
     return rollDaggerheartStrike(token, options);
+  }
+
+  /**
+   * API 19. A save rolled with the system's own roller, its card in the chat (check-roll.js rollDaggerheartSave): a
+   * reaction roll with the trait the save names, no dialog; null where the save isn't a trait.
+   */
+  async rollSave(token, options = {}) {
+    return rollDaggerheartSave(token, options);
+  }
+
+  /**
+   * API 19. A check rolled with the system's own roller, its card in the chat (check-roll.js rollDaggerheartCheck): an
+   * action roll with the trait the sheets give it (words, a theft, first aid, an escape, a trait move), no dialog; null
+   * for any other check, and a companion's.
+   */
+  async rollCheck(token, options = {}) {
+    return rollDaggerheartCheck(token, options);
   }
 
   /**

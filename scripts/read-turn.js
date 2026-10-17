@@ -9,8 +9,8 @@
  * And the spotlight's hand-off: a roll with Fear, or one that failed, gives it to the GM (each event's `handoff`; a roll
  * that told nothing else, {type: "handoff"}).
  * Each event says whether it's `sure`. A damage or healing card is also read on its own as it's made
- * (readDaggerheartDamage), for the core to apply or put before a GM; and a strike FastFighting had the system roll, at
- * the token it struck (readDaggerheartStrike).
+ * (readDaggerheartDamage), for the core to apply or put before a GM; a strike FastFighting had the system roll, at
+ * the token it struck (readDaggerheartStrike); and a save or a check it had the system roll (readDaggerheartCheck).
  */
 import { tokenIdIn as tokenIdOf } from "./core.js";
 
@@ -213,4 +213,26 @@ export function readDaggerheartStrike(m, tokenId) {
   if ( !r.crit && !Number.isFinite(dc) ) return null;
   const degree = r.crit ? 3 : meets(r, dc) ? 2 : 1;
   return { degree, natural: naturalOf(r), total: r.total, dice: r.dice, damage: degree >= 2 ? damageByType(m) : null };
+}
+
+/** A number as a card may hold it (a Difficulty: a number, or its text), else null. */
+const numberIn = v => (v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? null : Number(v));
+
+/**
+ * A save's or a check's card, as the system made it for one FastFighting asked of it (check-roll.js): {degree: 3 a
+ * critical (matching dice, or the d20 at its threshold), 2 a success (the Difficulty met; a reaction roll's critical
+ * too, which is only a success), 1 a failure, natural (the Duality Dice together, or the d20), total, dice ({hope,
+ * fear}: the Duality Dice; none for a d20)}; null where the card holds no action roll, or what it had to meet isn't
+ * known.
+ * @param {ChatMessage} m
+ * @param {object} options  {dc (the Difficulty asked for; the card's own first), reaction (a reaction roll)}
+ */
+export function readDaggerheartCheck(m, { dc = null, reaction = false } = {}) {
+  if ( !m?.system?.hasRoll || !ROLL_CARDS.includes(m.type) || m.type === "damageRoll" ) return null;
+  const r = actionRoll(m);
+  if ( !Number.isFinite(r.total) ) return null;
+  const need = numberIn(r.difficulty) ?? numberIn(dc);
+  if ( !r.crit && need === null ) return null;
+  const degree = r.crit ? (reaction ? 2 : 3) : r.total >= need ? 2 : 1;
+  return { degree, natural: naturalOf(r), total: r.total, ...(r.dice ? { dice: r.dice } : {}) };
 }

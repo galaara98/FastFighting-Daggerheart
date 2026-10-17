@@ -56,4 +56,15 @@ describe("the system's Duality Dice, as its card shows them", () => {
     expect(roll).toMatchObject({ degree: 2, natural: 15, total: 16 });
     expect(run.sharedPools.fear).toBe(2);
   });
+
+  test("a reaction roll's (rollSave's card): neither Hope nor Fear, nor a critical's Stress; its critical only a success", () => {
+    const { run, hero } = setUp();
+    const save = r => rollCheck(daggerheartRules, run.rng, 1, 14, { faces: DUALITY, kind: "save", roller: hero, rolled: r });
+    expect(save(rolled(6, 6, 2))).toMatchObject({ degree: 2, hope: 6, fear: 6, with: "crit" });
+    save(rolled(2, 11, 2));
+    save(rolled(10, 1, 2));
+    expect(hero.resources).toMatchObject({ hope: 2, stress: 3 });
+    expect(run.sharedPools.fear).toBe(2);
+    expect(hero.handoff).toBeFalsy();
+  });
 });
