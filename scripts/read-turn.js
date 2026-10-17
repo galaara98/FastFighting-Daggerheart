@@ -35,9 +35,19 @@ function itemName(source) {
 /** A roll's damage, as its card holds it (rolled with it, or rolled later on the same card). */
 function damageOf(m) {
   const main = m.system?.damage?.main;
-  const total = typeof main === "string" ? JSON.parse(main)?.total : main?.total;
+  let total = main?.total;
+  if ( typeof main === "string" ) {
+    try {
+      total = JSON.parse(main)?.total;
+    } catch ( err ) {
+      return null;
+    }
+  }
   return Number.isFinite(Number(total)) ? Math.max(0, Number(total)) : null;
 }
+
+/** A card's list, where it is one (a card's data is its author's to write). */
+const listOf = v => (Array.isArray(v) ? v : []);
 
 /**
  * @param {ChatMessage[]} messages  the cards made during the turn, oldest first
@@ -46,54 +56,60 @@ function damageOf(m) {
  */
 export function readDaggerheartTurn(messages, { tokenId, actorId = null, ids = {} } = {}) {
   const events = [];
+  // (A battle id by token id: only the battle's own, never one of Object's.)
+  const idOf = id => (typeof id === "string" && Object.hasOwn(ids, id) ? ids[id] : null);
   const mine = m => m.speaker?.token === tokenId || tokenIdOf(m.system?.source?.actor) === tokenId
     || (!m.speaker?.token && actorId && m.speaker?.actor === actorId);
   for ( const m of messages ) {
-    if ( !mine(m) || !["dualityRoll", "adversaryRoll", "damageRoll"].includes(m.type) ) continue;
-    const sys = m.system ?? {};
-    const roll = sys.roll ?? m.rolls?.[0] ?? null;
-    // (By the item it came from, "Longsword", rather than the card's title, "Longsword - Attack".)
-    const action = itemName(sys.source) ?? sys.title ?? "";
-    if ( m.type === "damageRoll" || !sys.hasRoll ) {
-      // (Damage or healing on its own card: the last hit with no damage yet, or a heal.)
-      const amount = damageOf(m) ?? (Number(roll?.total) || 0);
-      if ( sys.hasHealing ) {
-        for ( const t of sys.targets?.length ? sys.targets : [{ id: null }] ) events.push({ type: "heal", targetId: ids[t.id] ?? null, action, amount, sure: !!ids[t.id] });
+    try {
+      if ( !mine(m) || !["dualityRoll", "adversaryRoll", "damageRoll"].includes(m.type) ) continue;
+      const sys = m.system ?? {};
+      const roll = sys.roll ?? m.rolls?.[0] ?? null;
+      // (By the item it came from, "Longsword", rather than the card's title, "Longsword - Attack".)
+      const action = itemName(sys.source) ?? sys.title ?? "";
+      if ( m.type === "damageRoll" || !sys.hasRoll ) {
+        // (Damage or healing on its own card: the last hit with no damage yet, or a heal.)
+        const amount = damageOf(m) ?? (Number(roll?.total) || 0);
+        if ( sys.hasHealing ) {
+          for ( const t of listOf(sys.targets).length ? listOf(sys.targets) : [{ id: null }] ) events.push({ type: "heal", targetId: idOf(t?.id), action, amount, sure: !!idOf(t?.id) });
+          continue;
+        }
+        const strike = [...events].reverse().find(e => e.type === "attack" && e.degree >= 2 && !e.damage);
+        if ( strike && amount > 0 ) strike.damage = amount;
         continue;
       }
-      const strike = [...events].reverse().find(e => e.type === "attack" && e.degree >= 2 && !e.damage);
-      if ( strike && amount > 0 ) strike.damage = amount;
-      continue;
-    }
-    const dice = dualityOf(roll);
-    const crit = !!roll?.isCritical || (dice ? dice.hope === dice.fear : false);
-    const withFear = dice ? dice.fear > dice.hope && !crit : false;
-    const difficulty = roll?.options?.roll?.difficulty ?? null;
-    const targets = (sys.targets ?? []).map(t => ({ id: ids[t.id] ?? null, dc: difficulty ?? t.difficulty ?? t.evasion ?? null })).filter(t => t.id);
-    const total = Number(roll?.total);
-    const hits = t => crit || (Number.isFinite(t.dc) && total >= t.dc);
-    const failed = targets.length ? !targets.some(hits) : (Number.isFinite(difficulty) ? !crit && total < difficulty : false);
-    // (The spotlight goes to the GM after a roll with Fear, or one that failed.)
-    const handoff = !!dice && (withFear || failed);
-    const natural = dice ? dice.hope + dice.fear : (roll?.dice?.[0]?.total ?? null);
-    const before = events.length;
-    if ( targets.length && (sys.hasDamage || damageOf(m) !== null) ) {
-      const damage = damageOf(m) ?? 0;
-      for ( const t of targets ) {
-        const hit = hits(t);
-        events.push({
-          type: "attack", targetId: t.id, action, degree: crit ? 3 : hit ? 2 : 1, natural, total: Number.isFinite(total) ? total : null,
-          dc: t.dc, margin: Number.isFinite(t.dc) && Number.isFinite(total) ? total - t.dc : 0, damage: hit ? damage : 0, crit,
-          withFear, handoff, sure: Number.isFinite(t.dc)
-        });
+      const dice = dualityOf(roll);
+      const crit = !!roll?.isCritical || (dice ? dice.hope === dice.fear : false);
+      const withFear = dice ? dice.fear > dice.hope && !crit : false;
+      const difficulty = roll?.options?.roll?.difficulty ?? null;
+      const targets = listOf(sys.targets).map(t => ({ id: idOf(t?.id), dc: difficulty ?? t?.difficulty ?? t?.evasion ?? null })).filter(t => t.id);
+      const total = Number(roll?.total);
+      const hits = t => crit || (Number.isFinite(t.dc) && total >= t.dc);
+      const failed = targets.length ? !targets.some(hits) : (Number.isFinite(difficulty) ? !crit && total < difficulty : false);
+      // (The spotlight goes to the GM after a roll with Fear, or one that failed.)
+      const handoff = !!dice && (withFear || failed);
+      const natural = dice ? dice.hope + dice.fear : (roll?.dice?.[0]?.total ?? null);
+      const before = events.length;
+      if ( targets.length && (sys.hasDamage || damageOf(m) !== null) ) {
+        const damage = damageOf(m) ?? 0;
+        for ( const t of targets ) {
+          const hit = hits(t);
+          events.push({
+            type: "attack", targetId: t.id, action, degree: crit ? 3 : hit ? 2 : 1, natural, total: Number.isFinite(total) ? total : null,
+            dc: t.dc, margin: Number.isFinite(t.dc) && Number.isFinite(total) ? total - t.dc : 0, damage: hit ? damage : 0, crit,
+            withFear, handoff, sure: Number.isFinite(t.dc)
+          });
+        }
+      } else if ( sys.hasHealing ) {
+        for ( const t of targets.length ? targets : [{ id: null }] ) events.push({ type: "heal", targetId: t.id, action, amount: damageOf(m) ?? 0, handoff, sure: !!t.id });
+      } else if ( roll?.options?.roll?.trait === "presence" ) {
+        // (Words: whether it was talk at all, at whom and how well, the GM says.)
+        events.push({ type: "talk", targetId: targets[0]?.id ?? null, kind: "persuade", skill: action, degree: null, natural, total: Number.isFinite(total) ? total : null, handoff, sure: false });
       }
-    } else if ( sys.hasHealing ) {
-      for ( const t of targets.length ? targets : [{ id: null }] ) events.push({ type: "heal", targetId: t.id, action, amount: damageOf(m) ?? 0, handoff, sure: !!t.id });
-    } else if ( roll?.options?.roll?.trait === "presence" ) {
-      // (Words: whether it was talk at all, at whom and how well, the GM says.)
-      events.push({ type: "talk", targetId: targets[0]?.id ?? null, kind: "persuade", skill: action, degree: null, natural, total: Number.isFinite(total) ? total : null, handoff, sure: false });
+      if ( events.length === before && handoff ) events.push({ type: "handoff", handoff: true, sure: true });
+    } catch ( err ) {
+      console.warn("FastFighting Daggerheart | a card of the turn couldn't be read", err);
     }
-    if ( events.length === before && handoff ) events.push({ type: "handoff", handoff: true, sure: true });
   }
   return events;
 }

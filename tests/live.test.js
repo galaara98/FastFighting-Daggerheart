@@ -57,6 +57,17 @@ describe("a spotlight read from the daggerheart system's cards", () => {
     expect(readDaggerheartTurn([card({ trait: "finesse", total: 14 })], context)).toEqual([]);
     expect(readDaggerheartTurn([card({ token: "tokB", targets: [{ id: "tokA", evasion: 10 }], hasDamage: true })], context)).toEqual([]);
   });
+
+  test("a card with odd data (made by hand) is passed over, not the turn's other cards and hand-offs", () => {
+    const broken = card({ targets: [{ id: "tokB", evasion: 12 }], hasDamage: true });
+    broken.system.damage.main = "{not json";
+    const notList = card({ targets: { id: "tokB" }, hasDamage: true, damage: 4 });
+    const proto = card({ targets: [{ id: "constructor", evasion: 1 }], hasDamage: true, damage: 4 });
+    const events = readDaggerheartTurn([broken, notList, proto, card({ trait: "finesse", hope: 2, fear: 10, total: 14 })], context);
+    expect(events[0]).toMatchObject({ type: "attack", targetId: "B", damage: 0 });
+    expect(events.filter(e => e.type === "attack")).toHaveLength(1);
+    expect(events.at(-1)).toEqual({ type: "handoff", handoff: true, sure: true });
+  });
 });
 
 describe("whom FastFighting would spotlight next", () => {
