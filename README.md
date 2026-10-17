@@ -2,13 +2,13 @@
 
 > **AI use:** This module used AI in its creation.
 > - **Programming:** I am a skilled programmer by profession, but AI was used heavily as a co-pilot.
-> - **Strings:** ALL initial strings were created by AI.
+> - **Strings:** ALL initial strings were proposed by a LLM to get the concepts out, ALL strings were  tracked to make sure they were re-written (for simple or ttrpg/game specific phrases, approved by) a native speaker.
 
 Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFighting), the Foundry VTT module that simulates a fight (or a tense standoff) thousands of times, tells the story of one fair draw, and plays it for real on the Combat Tracker, a turn at a time, with **Do it For Real Now**.
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
-- **Needs:** FastFighting Core (API 17)
+- **Needs:** FastFighting Core (API 18)
 
 ## Installation
 
