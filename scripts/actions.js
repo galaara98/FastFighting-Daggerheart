@@ -101,6 +101,13 @@ const list = v => (Array.isArray(v) ? v : v instanceof Set ? [...v] : v && typeo
 /** A number from the sheet, 0 for none. */
 export const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
+/** A sheet's Experiences that add to a roll, the best first (of equals, the first on the sheet): [{key, name, value}]. */
+export const experienceList = sys => Object.entries(sys?.experiences ?? {}).map(([key, e]) => ({ key, name: e?.name, value: num(e?.value) }))
+  .filter(e => e.value > 0).sort((a, b) => b.value - a.value);
+
+/** What a Social adversary adds to its words, on top of its best Experience (this module's reading: talk is its trade). */
+export const SOCIAL_WORDS = 2;
+
 /** Where an action reaches: {melee, reach} for Melee, {range} beyond it, null for itself (or no range at all). */
 export function reachOf(key, ranges = RANGES) {
   if ( !key || key === "self" ) return null;

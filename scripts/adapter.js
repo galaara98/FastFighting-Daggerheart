@@ -35,7 +35,7 @@
  */
 import { SystemAdapter, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, fistIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf, num } from "./actions.js";
+import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, fistIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf, num, experienceList, SOCIAL_WORDS } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -77,10 +77,10 @@ const traitName = k => systemWord(`DAGGERHEART.CONFIG.Traits.${k}.name`, `Trait.
 /** A trait's verb ("Grapple", the system's word for what Strength does). */
 const verbName = (trait, verb) => systemWord(`DAGGERHEART.CONFIG.Traits.${trait}.verb.${verb}`, `Verb.${verb}`);
 const conditionName = k => systemWord(`DAGGERHEART.CONFIG.Condition.${k}.name`, `Condition.${k}`);
-/** The better of these traits for a roll (the first, when they're even): {mod, label}. */
+/** The better of these traits for a roll (the first, when they're even): {mod, label, trait (its key)}. */
 function bestTrait(traits, keys) {
   const k = keys.reduce((best, key) => (traits[key] > traits[best] ? key : best));
-  return { mod: traits[k], label: traitName(k) };
+  return { mod: traits[k], label: traitName(k), trait: k };
 }
 
 /**
@@ -140,7 +140,7 @@ const typeName = k => systemWord(`DAGGERHEART.CONFIG.AdversaryType.${k}.label`, 
 const actorTypeName = k => systemWord(`TYPES.Actor.${k}`, `ActorType.${k}`);
 
 /** Its Experiences worth a bonus, best first: [{name, value}]. */
-const experiencesOf = sys => Object.values(sys.experiences ?? {}).map(e => ({ name: e.name, value: num(e.value) })).filter(e => e.value > 0).sort((a, b) => b.value - a.value);
+const experiencesOf = sys => experienceList(sys).map(({ name, value }) => ({ name, value }));
 
 /** An item's effects, by id: {statuses, changes, duration}. */
 function effectsOf(item) {
@@ -536,7 +536,7 @@ export class DaggerheartAdapter extends SystemAdapter {
       creatureKind: typeName(type),
       social: {
         // (Its words: its best Experience, by its name; with none, its type's.)
-        pitches: beast ? {} : Object.fromEntries(["persuade", "intimidate", "deceive"].map(k => [k, { skill: best?.name || typeName(type), mod: (best?.value ?? 0) + (type === "social" ? 2 : 0) }])),
+        pitches: beast ? {} : Object.fromEntries(["persuade", "intimidate", "deceive"].map(k => [k, { skill: best?.name || typeName(type), mod: (best?.value ?? 0) + (type === "social" ? SOCIAL_WORDS : 0) }])),
         // (Anything tried on it, a hand in its pocket too, is against its Difficulty.)
         resist: Object.fromEntries(["persuade", "intimidate", "deceive", "steal"].map(k => [k, { dc: num(sys.difficulty), label: difficulty }])),
         resolve: tier - 1,
@@ -1031,8 +1031,8 @@ export class DaggerheartAdapter extends SystemAdapter {
 
   /**
    * API 19. A check rolled with the system's own roller, its card in the chat (check-roll.js rollDaggerheartCheck): an
-   * action roll with the trait the sheets give it (words, a theft, first aid, an escape, a trait move), no dialog; null
-   * for any other check, and a companion's.
+   * action roll with the trait the sheets give it (words, a theft, first aid, an escape, a trait move), no dialog; an
+   * adversary's words and escapes with what the engine adds to them. Null for any other check, and a companion's.
    */
   async rollCheck(token, options = {}) {
     return rollDaggerheartCheck(token, options);

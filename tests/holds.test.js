@@ -51,7 +51,7 @@ describe("each creature's way out, and its own grip", () => {
   test("a character: Strength or Agility out of a grip, Strength or Finesse out of bonds; its grip 12 + its Strength", async () => {
     const adapter = new DaggerheartAdapter();
     const nimble = await adapter.toCombatantSpec(tokenOf(character({ agility: 1, strength: -1, finesse: 2, instinct: 0, presence: 0, knowledge: 0 })));
-    expect(nimble.escapeWork).toEqual({ mod: 1, label: text("FFDAGGERHEART.Trait.agility"), bonds: { mod: 2, label: text("FFDAGGERHEART.Trait.finesse") } });
+    expect(nimble.escapeWork).toEqual({ mod: 1, label: text("FFDAGGERHEART.Trait.agility"), trait: "agility", bonds: { mod: 2, label: text("FFDAGGERHEART.Trait.finesse"), trait: "finesse" } });
     expect(nimble.escapeDC).toBe(12);
     // (Even: Strength, the first.)
     const strong = await adapter.toCombatantSpec(tokenOf(character({ agility: 2, strength: 2, finesse: 0, instinct: 0, presence: 0, knowledge: 0 })));
@@ -174,6 +174,59 @@ describe("a try at breaking free", () => {
     expect(friend.effects).toEqual([expect.objectContaining({ key: "kneebreaker", conditions: { vulnerable: 1 } })]);
     // (Bonds a friend unties: the core's, no roll.)
     expect(daggerheartRules.breakFree(r, helper, { key: "bound", dc: 14, others: "untie" }, { freeing: true, held: friend })).toBe(null);
+  });
+
+  describe("in a turn FastFighting plays: the system's roll, its card in the chat", () => {
+    /** A live battle's run, its system answering each roll asked of it with `answer` (null: none), the asks kept. */
+    const live = (answer, rng = fixed(1)) => {
+      const asked = [];
+      return { r: { ...run(rng), live: { playing: true, roll: (_, request) => { asked.push(request); return answer; } } }, asked };
+    };
+    const work = { mod: 1, label: "Agility", trait: "agility", bonds: { mod: 2, label: "Finesse", trait: "finesse" } };
+
+    test("a character's: asked as the engine's own escapes are, with its trait's key; Hope or Fear from the card's Duality Dice", () => {
+      const { r, asked } = live({ degree: 2, natural: 13, total: 14, dice: { hope: 4, fear: 9 } });
+      const u = unit({ escapeWork: work, conds: { restrained: 1, immobilized: 1 } });
+      const got = daggerheartRules.breakFree(r, u, restrained);
+      expect(asked).toEqual([{ kind: "check", unitId: "u", targetId: null, purpose: "escape", skill: "agility", against: null, dc: 12, action: { id: null, name: "restrained" } }]);
+      expect(got).toEqual({ success: true, degree: 2, dc: 12, said: { text: said("Agility", 13, 1, 14, 12, text("FFDAGGERHEART.Note.Fear", { hope: 4, fear: 9 })) } });
+      // (With Fear: the GM's Fear and the spotlight, as any action roll's; no dice of the engine's rolled.)
+      expect([u.sharedPools.fear, u.handoff, u.resources.hope]).toEqual([4, true, 2]);
+    });
+
+    test("bonds, or freeing a friend: Strength or Finesse, the friend it frees named", () => {
+      const { r, asked } = live({ degree: 3, natural: 10, total: 12, dice: { hope: 5, fear: 5 } });
+      const u = unit({ escapeWork: work });
+      expect(daggerheartRules.breakFree(r, u, { key: "bound", dc: 14, others: "untie" })).toMatchObject({ success: true, degree: 3 });
+      // (A critical: a Hope, a Stress cleared.)
+      expect(u.resources).toMatchObject({ hope: 3, stress: 6 });
+      const friend = unit({ id: "f" });
+      daggerheartRules.breakFree(r, u, restrained, { freeing: true, held: friend });
+      expect(asked.map(a => [a.skill, a.targetId, a.action.name])).toEqual([["finesse", null, "bound"], ["finesse", "f", "restrained"]]);
+    });
+
+    test("an adversary's bonds: the card's d20 as it stands; a hold, no roll and nothing asked", () => {
+      const { r, asked } = live({ degree: 1, natural: 9, total: 11 });
+      const bandit = unit({ id: "b", pc: false });
+      expect(daggerheartRules.breakFree(r, bandit, { key: "bound", dc: 14, others: "untie" })).toEqual({ success: false, degree: 1, natural: 9, mod: 2, total: 11, dc: 14 });
+      expect(asked).toMatchObject([{ unitId: "b", purpose: "escape", skill: null, dc: 14 }]);
+      expect(daggerheartRules.breakFree(r, bandit, restrained)).toEqual({ success: true });
+      expect(asked).toHaveLength(1);
+      expect(bandit.sharedPools.fear).toBe(3);
+    });
+
+    test("no answer (the system made none): the engine's own dice, as before", () => {
+      const { r, asked } = live(null, fixed(9, 4));
+      const u = unit({ escapeWork: work });
+      expect(daggerheartRules.breakFree(r, u, restrained)).toMatchObject({ success: true, degree: 2, dc: 12 });
+      expect(asked).toHaveLength(1);
+      expect(u.resources.hope).toBe(3);
+    });
+
+    test("a character's card whose dice couldn't be read: its numbers, as it stands", () => {
+      const { r } = live({ degree: 1, natural: 7, total: 8 });
+      expect(daggerheartRules.breakFree(r, unit({ escapeWork: work }), restrained)).toEqual({ success: false, degree: 1, dc: 12, natural: 7, mod: 1, total: 8 });
+    });
   });
 
   test("in a fight: Restrained, no foe near, it breaks free on its spotlight, and moves again", () => {

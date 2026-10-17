@@ -12,6 +12,7 @@ import { DaggerheartAdapter } from "../scripts/adapter.js";
 import { SystemAdapter } from "../scripts/core.js";
 import { checkTrait, saveTrait } from "../scripts/check-roll.js";
 import { readDaggerheartCheck } from "../scripts/read-turn.js";
+import { text } from "./foundry-i18n.js";
 
 const adapter = new DaggerheartAdapter();
 let made = 0;
@@ -36,26 +37,34 @@ class Updates extends Map {
 /**
  * A creature of `type` on the scene, its actor's diceRoll as the system's: it reads the config as it's given (a dialog
  * unless configure is false), rolls (a character's or companion's Duality Dice, `hope` and `fear`, plus the trait; else
- * a d20, `natural`, a critical at `critOn`, a reaction roll's at 20), makes the card (in the message mode it's given),
- * queues the dice's Hope, Fear and Stress (not for a reaction roll, nor when skipped) and what its features' triggers
- * return (`trigger`), and hands its config back. `cancel`: nothing back. `nocard`: no card made.
+ * a d20, `natural`, a critical at its sheet's threshold (`critOn`; `null`, none), a reaction roll's at 20), adds the
+ * roll's base modifiers and the Experiences named (by key, from its sheet), makes the card (in the message mode it's
+ * given), queues the dice's Hope, Fear and Stress (not for a reaction roll, nor when skipped) and what its features'
+ * triggers return (`trigger`), and hands its config back. `cancel`: nothing back. `nocard`: no card made. `system`: more
+ * of its sheet.
  */
 function creature(type = "character", o = {}) {
   const log = { rolls: [], applied: [], config: null };
   const duality = ["character", "companion"].includes(type);
   const actor = {
-    type, isNPC: !duality, uuid: "Actor.a1", system: { traits: Object.fromEntries(Object.entries(o.traits ?? {}).map(([k, v]) => [k, { value: v }])) },
+    id: "a1", type, isNPC: !duality, uuid: "Actor.a1", name: "Kael", img: "", statuses: new Set(), items: [],
+    system: {
+      traits: Object.fromEntries(Object.entries(o.traits ?? {}).map(([k, v]) => [k, { value: v }])),
+      ...(duality || o.critOn === null ? {} : { criticalThreshold: o.critOn ?? 20 }), ...o.system
+    },
     async diceRoll(config) {
       log.rolls.push({ ...config, dialog: config.dialog?.configure !== false });
       log.config = config;
       if ( o.cancel ) return undefined;
       const reaction = config.actionType === "reaction";
-      const mod = actor.system.traits[config.roll.trait]?.value ?? 0;
+      const sheet = actor.system;
+      const mod = (sheet.traits[config.roll.trait]?.value ?? 0) + (config.roll.baseModifiers ?? []).reduce((n, m) => n + m.value, 0)
+        + (config.experiences ?? []).reduce((n, k) => n + (sheet.experiences?.[k]?.value ?? 0), 0);
       const options = { roll: { ...config.roll }, actionType: config.actionType };
-      const { hope = 9, fear = 4, natural = 15, critOn = 20 } = o;
+      const { hope = 9, fear = 4, natural = 15 } = o;
       const roll = duality
         ? { total: hope + fear + mod, isCritical: hope === fear, dHope: { total: hope }, dFear: { total: fear }, dice: [{ faces: 12, total: hope }, { faces: 12, total: fear }], options }
-        : { total: natural + mod, isCritical: natural >= (reaction ? 20 : critOn), dice: [{ faces: 20, total: natural }], options };
+        : { total: natural + mod, isCritical: natural >= (reaction ? 20 : sheet.criticalThreshold), dice: [{ faces: 20, total: natural }], options };
       config.source = { actor: actor.uuid };
       config.resourceUpdates = new Updates(log);
       if ( duality && !reaction && !config.skips?.resources ) {
@@ -70,8 +79,15 @@ function creature(type = "character", o = {}) {
       return config;
     }
   };
-  return { token: { id: "tokA", uuid: "Scene.s.Token.tokA", parent: { id: "s" }, actor }, actor, log };
+  return { token: { id: "tokA", uuid: "Scene.s.Token.tokA", name: "Kael", parent: { id: "s" }, texture: { src: "" }, actor }, actor, log };
 }
+
+/** An adversary's sheet, as far as the adapter reads one: its attack (+2), its Experiences, its type. */
+const sword = { type: "attack", range: "melee", target: { type: "any", amount: 1 }, cost: [], damage: { main: { type: ["physical"], applyTo: "hitPoints", value: { dice: "d8", bonus: 1, multiplier: "flat", flatMultiplier: 1 } } } };
+const adversarySheet = (extra = {}) => ({
+  type: "standard", tier: 1, difficulty: 13, experiences: {}, resistance: { physical: {}, magical: {} }, resources: { hitPoints: { max: 5, value: 0 }, stress: { max: 3, value: 0 } },
+  damageThresholds: { major: 8, severe: 14 }, attack: { ...sword, name: "Daggers", roll: { type: "attack", bonus: 2 } }, ...extra
+});
 
 const nobody = { id: null, name: "" };
 const save = (token, options) => adapter.rollSave(token, { action: nobody, from: null, ...options });
@@ -110,6 +126,14 @@ describe("a save, rolled the daggerheart system's way", () => {
     const eighteen = creature("adversary", { natural: 18, critOn: 18 });
     expect(await save(eighteen.token, { save: "agility", dc: 30 })).toEqual({ degree: 1, natural: 18, total: 18 });
     expect(eighteen.log.rolls[0]).toMatchObject({ actionType: "reaction", dialog: false });
+  });
+
+  test("an adversary's: the bare d20, as the engine's save for it (it has no traits); no Experience, no modifier", async () => {
+    const { token, log } = creature("adversary", { natural: 10, system: adversarySheet({ experiences: { a: { name: "Tough", value: 3 } } }) });
+    const spec = await adapter.toCombatantSpec(token);
+    expect((await save(token, { save: "strength", dc: 30 })).total).toBe(10 + spec.defenses.strength);
+    expect(log.rolls[0]).not.toHaveProperty("experiences");
+    expect(log.rolls[0].roll).not.toHaveProperty("baseModifiers");
   });
 
   test("a companion's: its own reaction roll, as the system makes one", async () => {
@@ -201,14 +225,59 @@ describe("a check, rolled the daggerheart system's way", () => {
     expect((await check(creature("character", { hope: 2, fear: 5 }).token, { purpose: "aid", dc: 12, action: { id: "tokA.hide", name: "" } })).degree).toBe(1);
   });
 
-  test("an adversary's: a d20 action roll, a critical at its threshold, titled an action roll; no dice", async () => {
+  test("an adversary's: a d20 action roll, a critical on a 20, titled an action roll; no dice", async () => {
     const words = { "DAGGERHEART.GENERAL.Roll.action": "ACT" };
     const i18n = game.i18n;
     game.i18n = { ...i18n, has: k => k in words || i18n.has(k), localize: k => words[k] ?? i18n.localize(k) };
-    const { token, log } = creature("adversary", { natural: 18, critOn: 18 });
-    expect(await check(token, { purpose: "talk", dc: 30 })).toEqual({ degree: 3, natural: 18, total: 18 });
+    const { token, log } = creature("adversary", { natural: 20 });
+    expect(await check(token, { purpose: "talk", dc: 30 })).toEqual({ degree: 3, natural: 20, total: 20 });
     expect(log.rolls[0]).toMatchObject({ actionType: "action", title: "ACT" });
     expect((await check(creature("adversary", { natural: 11 }).token, { purpose: "escape", dc: 12 })).degree).toBe(1);
+  });
+
+  test("an adversary's words: its best Experience (the first of equals), as the system adds one, and a Social one's +2: what the engine plans with", async () => {
+    const experiences = { a: { name: "Fast Talk", value: 2 }, b: { name: "Haggle", value: 3 }, c: { name: "Liar", value: 3 } };
+    const { token, log } = creature("adversary", { natural: 10, system: adversarySheet({ type: "social", experiences }) });
+    const spec = await adapter.toCombatantSpec(token);
+    expect(await check(token, { purpose: "talk", skill: "Haggle", dc: 30 })).toMatchObject({ degree: 1, natural: 10, total: 10 + spec.social.pitches.persuade.mod });
+    expect(log.rolls[0].experiences).toEqual(["b"]);
+    expect(log.rolls[0].roll.baseModifiers).toEqual([{ label: text("FFDAGGERHEART.Type.social"), value: 2 }]);
+    // (Spent with no Fear: no cost, no dialog to charge one.)
+    expect(log.rolls[0]).toMatchObject({ dialog: false });
+    expect(log.rolls[0].costs).toBeUndefined();
+    // (Another type, no Experience: nothing added.)
+    const plain = creature("adversary", { natural: 10, system: adversarySheet() });
+    expect((await check(plain.token, { purpose: "talk", dc: 30 })).total).toBe(10 + (await adapter.toCombatantSpec(plain.token)).social.pitches.persuade.mod);
+    expect(plain.log.rolls[0]).not.toHaveProperty("experiences");
+    expect(plain.log.rolls[0].roll).not.toHaveProperty("baseModifiers");
+  });
+
+  test("an adversary's escape: its attack modifier, its escapeWork's; anything else of an adversary's, left to the engine", async () => {
+    const { token, log } = creature("adversary", { natural: 10, system: adversarySheet() });
+    const spec = await adapter.toCombatantSpec(token);
+    expect((await check(token, { purpose: "escape", dc: 30 })).total).toBe(10 + spec.escapeWork.mod);
+    expect(log.rolls[0].roll.baseModifiers).toEqual([{ label: text("FFDAGGERHEART.AttackModifier"), value: 2 }]);
+    for ( const purpose of ["theft", "firstAid"] ) expect(await check(token, { purpose, dc: 10 })).toBeNull();
+    expect(log.rolls).toHaveLength(1);
+  });
+
+  test("a d20 check where the sheet's critical threshold isn't 20 (the engine plans it at 20), or there's none: null, nothing rolled", async () => {
+    for ( const critOn of [18, 19, null] ) {
+      const { token, log } = creature("adversary", { critOn, system: adversarySheet() });
+      expect(await check(token, { purpose: "talk", dc: 10 })).toBeNull();
+      expect(await check(token, { purpose: "escape", dc: 10 })).toBeNull();
+      expect(log.rolls).toEqual([]);
+    }
+    // (A save, a reaction roll, crits on a 20 whatever the sheet says: rolled.)
+    expect(await save(creature("adversary", { critOn: 18, natural: 19 }).token, { save: "agility", dc: 30 })).toMatchObject({ degree: 1 });
+  });
+
+  test("an escape names its trait by its key where it knows it (rules.js breakFree: Finesse out of bonds); a word for the log isn't read", async () => {
+    const { token, log } = creature("character", { traits: { strength: 1, agility: 2, finesse: 0 } });
+    await check(token, { purpose: "escape", skill: "finesse", dc: 10 });
+    await check(token, { purpose: "escape", skill: "Finesse", dc: 10 });
+    await check(token, { purpose: "escape", skill: null, dc: 10 });
+    expect(log.rolls.map(r => r.roll.trait)).toEqual(["finesse", "agility", "agility"]);
   });
 
   test("the dice's Hope, Fear and Stress kept off the sheets (FastFighting counts them from the card); its triggers' applied, as the sheet's roll does", async () => {

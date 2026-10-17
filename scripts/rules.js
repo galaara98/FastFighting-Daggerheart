@@ -41,6 +41,8 @@
  * Pure: no Foundry globals (words through t(); the setting through tied-up.js).
  */
 import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize, listJoin, part } from "./core.js";
+// (The core's systemRolled and rollCheck came with its API 19: read off the whole, so an older core still loads this.)
+import * as coreApi from "./core.js";
 import { DUALITY, dualityChances, dualityWith, d20Chances, rollDuality, rollD20 } from "./dice.js";
 import { CONDITION_KEYS, RANGES } from "./actions.js";
 import { tiedStopsSpells } from "./tied-up.js";
@@ -247,6 +249,18 @@ function* gmTurn(run, order) {
 function triedLine(roll, mod, dc, label) {
   const numbers = localize("FASTFIGHTING.Log.RollOwn", { natural: roll.natural, mod: mod >= 0 ? `+${mod}` : `${mod}`, total: roll.total, label: systemWord("DAGGERHEART.GENERAL.difficulty", "Difficulty"), dc });
   return label ? t("BreakFree.Trait", { trait: label, roll: numbers, note: roll.note }) : t("BreakFree.Plain", { roll: numbers, note: roll.note });
+}
+
+/**
+ * A check the rules roll themselves (breaking free): in a turn FastFighting plays, the system's own roll where it makes
+ * checks, asked as the engine asks for its own (the core's systemRolled; `request` {target, purpose, skill, label}), its
+ * Duality Dice settling Hope and Fear (asRolled, through the core's rollCheck); else, or with a core without them, the
+ * rules' own dice.
+ */
+function ownCheck(run, who, mod, dc, options, request) {
+  const rolled = typeof coreApi.systemRolled === "function" ? coreApi.systemRolled(run, who, "check", { dc, ...request }) : null;
+  if ( typeof coreApi.rollCheck !== "function" ) return daggerheartRules.roll(run.rng, mod, dc, options);
+  return coreApi.rollCheck(daggerheartRules, run.rng, mod, dc, { ...options, rolled });
 }
 
 /** The first of `list` after `from` in the fight's order, round again to the first. */
@@ -671,20 +685,26 @@ export const daggerheartRules = {
    * Difficulty (else what's typical for the held one's tier). An adversary clears a hold when the GM spotlights it, no
    * roll; its bonds take the d20 and its attack modifier. Bonds a friend unties are the core's (no roll). What comes
    * off with a hold broken (Restrained's immobilized too) is the core's.
+   * In a turn FastFighting plays, the roll is the system's, its card in the chat, asked as the engine's own escapes ask
+   * for theirs (ownCheck; check-roll.js rolls it with the trait named here).
    */
   breakFree(run, who, hold, { freeing = false, held = null } = {}) {
     if ( freeing && hold.others === "untie" ) return null;
     const bonds = hold.key === "bound";
     const dc = Number.isFinite(hold.dc) ? hold.dc : daggerheartRules.typical.dc((held ?? who).spec.level);
+    // (Who's held, when it's a friend; the trait by its key, for the system's roll.)
+    const asked = trait => ({ target: held && held !== who ? held : null, purpose: "escape", skill: trait ?? null, label: hold.key });
     if ( rollsDuality(who) ) {
       const work = (bonds || freeing ? who.spec.escapeWork?.bonds : who.spec.escapeWork) ?? {};
       const mod = Number(work.mod) || 0;
-      const roll = daggerheartRules.roll(run.rng, mod, dc, { roller: who, faces: DUALITY, kind: "check" });
-      return { success: roll.degree >= 2, degree: roll.degree, dc, said: { text: triedLine(roll, roll.total - roll.natural, dc, work.label) } };
+      const roll = ownCheck(run, who, mod, dc, { roller: who, faces: DUALITY, kind: "check" }, asked(work.trait));
+      const out = { success: roll.degree >= 2, degree: roll.degree, dc };
+      // (A card whose dice couldn't be read: its numbers, not the Duality Dice's line.)
+      return roll.note ? { ...out, said: { text: triedLine(roll, roll.total - roll.natural, dc, work.label) } } : { ...out, natural: roll.natural, mod, total: roll.total };
     }
     if ( !bonds ) return { success: true };
     const mod = Number(who.spec.escapeWork?.mod) || 0;
-    const roll = daggerheartRules.roll(run.rng, mod, dc, { roller: who, faces: 20, kind: "check" });
+    const roll = ownCheck(run, who, mod, dc, { roller: who, faces: 20, kind: "check" }, asked(null));
     return { success: roll.degree >= 2, degree: roll.degree, natural: roll.natural, mod, total: roll.total, dc };
   },
   /** Whether a creature tied up casts no spells: the world's setting (the SRD doesn't say which need free hands). */

@@ -86,6 +86,7 @@
     },
     "Unarmed": "Unarmed",
     "Difficulty": "Difficulty",
+    "AttackModifier": "Attack Modifier",
     "Resource": {
       "hope": "Hope",
       "stress": "Stress",
