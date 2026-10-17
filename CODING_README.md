@@ -32,6 +32,7 @@ When new functionality needs something the core can't express "close enough" wit
 | `auto.js` | Setting up by itself: playstyle hints, "Let this character decide" answers, the biography for keywords (pure). |
 | `commit.js` | Live battles written back: a turn's changes, the GM's Fear, a concession; the planner's outcome lines. |
 | `read-turn.js` | A player's spotlight read from the system's chat cards. |
+| `strike-roll.js` | A strike rolled with the system's own roller (`rollStrike`): a live battle's turns and reactions. |
 | `lore.js`, `tied-up.js` | The two world settings. |
 | `words.js` | `t()` (this module's `FFDAGGERHEART.*` keys), `systemWord()` and `resourceWord()` (the system's own `DAGGERHEART.*` word where it has one, else this module's). |
 | `core.js` | The one import path into the core. |
@@ -49,7 +50,7 @@ When new functionality needs something the core can't express "close enough" wit
 - `itemCatalog`: categories `weapon`, `armor`, `consumable`, `loot`; no materials or rarities.
 - `term`: `ac` is Difficulty, `hp` is HP, `money` is the world's currency title when the GM renamed it (Homebrew settings), else the system's Gold.
 - `resourceLabel`: `hope`, `stress`, `fear`, `armor` in the system's words.
-- Live: `supportsLive` true; `liveTurns` `"spotlight"`; `giveSpotlight` uses the daggerheart tracker's own `setCombatantSpotlight` / `clearTurn` when it shows that combat (its countdowns and action tokens go with it), else the core's; `livePools` `{ fear }`; `commitChanges`, `commitTurn` (Fear), `commitConcession`, `describeOutcome` (`commit.js`); `readTurn` (`read-turn.js`); `sheetCarries`, `conditionLabel`, `conditionChoices` (the three conditions, below).
+- Live: `supportsLive` true; `liveTurns` `"spotlight"`; `giveSpotlight` uses the daggerheart tracker's own `setCombatantSpotlight` / `clearTurn` when it shows that combat (its countdowns and action tokens go with it), else the core's; `livePools` `{ fear }`; `commitChanges`, `commitTurn` (Fear), `commitConcession`, `describeOutcome` (`commit.js`); `readTurn` (`read-turn.js`); `rollStrike` (`strike-roll.js`, below); `sheetCarries`, `conditionLabel`, `conditionChoices` (the three conditions, below).
 
 ### Reading a sheet
 
@@ -118,6 +119,7 @@ Daggerheart's values for the core's rules keys (the core's docs define each key)
 - `commitFearTurn` moves the world's `ResourcesFear` by as much as the turn moved it, with an undo record for the setting.
 - `commitDaggerheartConcession` pays gold through the world's currency (chests, bags, handfuls, coins, ten of each to the next) and hands items over unequipped, to a character only.
 - API 19's players' damage: `damageCard` (`readDaggerheartDamage`: the main roll's damage, else a heal's Hit Points; an attack's targets only those it hit; `save` when the action calls for a reaction roll), `applyDamageCard` (`applyDaggerheartDamage`: the system's `Actor#takeDamage` / `takeHealing`, times the multiplier, waiting for the writes it doesn't await; undo records of the resources, Armor Slots and Fear it changed) and `appliesPlayerDamage` (while the system's Automation `roll.damageApply.players` is on).
+- API 19's strikes: `rollStrike` (`strike-roll.js` `rollDaggerheartStrike`), every strike in a turn FastFighting plays and a reaction's: the attack the strike's id names (`.attack` and a Horde's `.attack.horde`, the standard attack; `.unarmed`; `.<weapon id>`; a feature's action is left to the engine), through the action's own `use()` with Shift down and `dialog.configure` false, the user's target set to the strike's target for the roll (theirs put back). Read off its card (`readDaggerheartStrike`: a critical on matching dice or at the d20's threshold, else the target's Difficulty or Evasion; no critical failure); a hit's damage rolled as the card's Roll Damage button rolls it where the Automation hasn't, waited for (the system writes it without waiting), by type with its Stress, the card the core applies. FastFighting deals the blow, pays the costs, lays the effects and counts Hope and Fear: the workflow's Cost, ApplyDamage and Effects steps are emptied for this roll (its `pre…Action` hooks) and `skips.resources` keeps the Duality Dice's Hope, Fear and Stress off the sheets. The engine's Hope, Fear and hand-off follow its own dice, not the card's: the result carries neither. `secret`: `selectedMessageMode: "gm"`.
 - `readDaggerheartTurn` reads a player's cards: an action roll at a target with damage as an attack (a hit at the target's Difficulty or Evasion, a critical on matching dice), a Presence roll as words for the GM to confirm, healing; a roll with Fear or a failure hands the spotlight off. Each event says whether it's `sure`.
 
 ## Development

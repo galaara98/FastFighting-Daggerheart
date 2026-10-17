@@ -41,6 +41,7 @@ import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, 
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
 import { commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitDaggerheartConcession, applyDaggerheartDamage } from "./commit.js";
 import { readDaggerheartTurn, readDaggerheartDamage } from "./read-turn.js";
+import { rollDaggerheartStrike } from "./strike-roll.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
@@ -1008,6 +1009,15 @@ export class DaggerheartAdapter extends SystemAdapter {
   /** API 19. A damage card applied to one token through the system's own damage handling (commit.js). */
   async applyDamageCard(message, token, options) {
     return applyDaggerheartDamage(message, token, options);
+  }
+
+  /**
+   * API 19. A strike rolled with the system's own roller, its card in the chat (strike-roll.js rollDaggerheartStrike): the
+   * attack at its target, no dialog, and a hit's damage as the card holds it; null where the strike isn't the creature's
+   * standard attack, a weapon or its unarmed attack.
+   */
+  async rollStrike(token, options = {}) {
+    return rollDaggerheartStrike(token, options);
   }
 
   /**

@@ -9,7 +9,8 @@
  * And the spotlight's hand-off: a roll with Fear, or one that failed, gives it to the GM (each event's `handoff`; a roll
  * that told nothing else, {type: "handoff"}).
  * Each event says whether it's `sure`. A damage or healing card is also read on its own as it's made
- * (readDaggerheartDamage), for the core to apply or put before a GM.
+ * (readDaggerheartDamage), for the core to apply or put before a GM; and a strike FastFighting had the system roll, at
+ * the token it struck (readDaggerheartStrike).
  */
 import { tokenIdIn as tokenIdOf } from "./core.js";
 
@@ -74,6 +75,9 @@ const dcAt = (t, difficulty) => difficulty ?? t?.difficulty ?? t?.evasion ?? nul
 /** Whether a roll met that (a critical always hits). */
 const meets = (r, dc) => r.crit || (Number.isFinite(dc) && r.total >= dc);
 
+/** A roll's dice as they fell: the Duality Dice together, else the d20. */
+const naturalOf = r => (r.dice ? r.dice.hope + r.dice.fear : (r.roll?.dice?.[0]?.total ?? null));
+
 /** The cards the system makes for an action: its rolls (a character's, an adversary's) and damage on a card of its own. */
 const ROLL_CARDS = Object.freeze(["dualityRoll", "adversaryRoll", "damageRoll"]);
 
@@ -114,7 +118,7 @@ export function readDaggerheartTurn(messages, { tokenId, actorId = null, ids = {
       const failed = targets.length ? !targets.some(hits) : (Number.isFinite(difficulty) ? !crit && total < difficulty : false);
       // (The spotlight goes to the GM after a roll with Fear, or one that failed.)
       const handoff = !!dice && (withFear || failed);
-      const natural = dice ? dice.hope + dice.fear : (roll?.dice?.[0]?.total ?? null);
+      const natural = naturalOf(r);
       const before = events.length;
       if ( targets.length && (sys.hasDamage || damageOf(m) !== null) ) {
         const damage = damageOf(m) ?? 0;
@@ -161,4 +165,52 @@ export function readDaggerheartDamage(m) {
     if ( !targets.length ) return null;
   }
   return { amount, kind: healing ? "healing" : "damage", targets: targets.map(t => t.id), save: !!sys.hasSave };
+}
+
+/** A damage roll's type, as its card holds it (the first of its types, as actions.js reads an action's), else physical. */
+function typeOf(roll) {
+  let options = roll?.options;
+  if ( typeof roll === "string" ) {
+    try {
+      options = JSON.parse(roll)?.options;
+    } catch ( err ) {
+      options = null;
+    }
+  }
+  const types = options?.damageTypes;
+  return [...(types instanceof Set ? types : listOf(types))].find(k => typeof k === "string" && k) ?? "physical";
+}
+
+/**
+ * A card's damage by type, as rolled (before the target's resistances and thresholds; a critical's with what the system
+ * adds for it): its main roll under its type, and the Stress it marks. Null for none.
+ */
+function damageByType(m) {
+  const out = {};
+  const main = damageOf(m);
+  if ( main > 0 ) out[typeOf(m.system.damage.main)] = main;
+  const stress = totalOf(m.system?.damage?.resources?.stress);
+  if ( stress > 0 ) out.stress = stress;
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * A strike's card, as the system made it for a strike FastFighting asked of it (strike-roll.js): the attack at the token
+ * it struck and, a hit, the damage the card holds. {degree: 3 a critical (matching dice, or the d20 at its threshold),
+ * 2 a hit (the target's Difficulty or Evasion met), 1 a miss (neither roll fails critically), natural (the Duality Dice
+ * together, or the d20), total, damage: {type: amount} | null}; null where the card holds no action roll at that token,
+ * or what the roll had to meet there isn't known.
+ * @param {ChatMessage} m
+ * @param {string} tokenId
+ */
+export function readDaggerheartStrike(m, tokenId) {
+  const sys = m?.system;
+  if ( !sys?.hasRoll || !ROLL_CARDS.includes(m.type) || m.type === "damageRoll" ) return null;
+  const target = listOf(sys.targets).find(t => typeof t?.id === "string" && t.id === tokenId);
+  const r = actionRoll(m);
+  if ( !target || !Number.isFinite(r.total) ) return null;
+  const dc = dcAt(target, r.difficulty);
+  if ( !r.crit && !Number.isFinite(dc) ) return null;
+  const degree = r.crit ? 3 : meets(r, dc) ? 2 : 1;
+  return { degree, natural: naturalOf(r), total: r.total, damage: degree >= 2 ? damageByType(m) : null };
 }
