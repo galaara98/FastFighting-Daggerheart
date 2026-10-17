@@ -431,6 +431,9 @@ export function toSummonSpec(action, ctx, creatures = []) {
  */
 const BODY_ICON = /^icons\/(?:creatures\/|commodities\/(?:biological|bones|claws)\/|skills\/melee\/unarmed-|magic\/earth\/strike-fist)/;
 export const bodyIcon = img => BODY_ICON.test(String(img ?? ""));
+/** Of those, a fist (a punch): a hand, which needs to be free. */
+const FIST_ICON = /^icons\/(?:skills\/melee\/unarmed-punch|magic\/earth\/strike-fist)/;
+export const fistIcon = img => FIST_ICON.test(String(img ?? ""));
 
 /**
  * A reaction feature's action as one of the engine's reactions (the core's responses.js), or null when it isn't one

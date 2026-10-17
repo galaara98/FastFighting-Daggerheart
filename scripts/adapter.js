@@ -35,7 +35,7 @@
  */
 import { SystemAdapter, hasWords, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
+import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, fistIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -442,8 +442,8 @@ export class DaggerheartAdapter extends SystemAdapter {
     const attackBonus = num(sys.attack?.roll?.bonus);
     const common = { pc: false, attackBonus, difficulty: num(sys.difficulty), critOn: num(sys.criticalThreshold) || 20, ranges: r };
     const beast = isBeast(sys.motivesAndTactics, sys.type);
-    // (A natural attack needs no free hands: a beast's, or one shown with its own body, claws or fangs, a fist.)
-    const hands = img => (beast || bodyIcon(img) ? { hands: 0 } : {});
+    // (A natural attack needs no free hands: a beast's, or one shown with its own body, claws or fangs; a fist is a hand.)
+    const hands = img => (fistIcon(img) ? { hands: 1 } : beast || bodyIcon(img) ? { hands: 0 } : {});
     const actions = [];
     if ( sys.attack ) {
       const attack = plain(sys.attack);

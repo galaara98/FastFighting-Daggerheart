@@ -288,12 +288,18 @@ describe("natural attacks need no free hands", () => {
   };
   const attackOf = async actor => (await new DaggerheartAdapter().toCombatantSpec(tokenOf(actor))).actions[0];
 
-  test("one shown with its own body (claws, fangs, a tail, a fist, a horn): none; a weapon's, as the core has it", async () => {
+  test("one shown with its own body (claws, fangs, a tail, a horn): none; a fist, a hand; a weapon's, as the core has it", async () => {
     for ( const img of ["icons/creatures/claws/claw-straight-brown.webp", "icons/creatures/abilities/mouth-teeth-long-red.webp", "icons/commodities/biological/tail-lizard-red.webp",
-      "icons/commodities/bones/horn-drinking-white.webp", "icons/skills/melee/unarmed-punch-fist.webp", "icons/magic/earth/strike-fist-stone.webp"] ) {
+      "icons/commodities/bones/horn-drinking-white.webp"] ) {
       const a = await attackOf(beastly(img));
       expect(a.hands).toBe(0);
       expect(holds.needsHands(daggerheartRules, a)).toBe(false);
+    }
+    // (A fist is a hand: it needs to be free.)
+    for ( const img of ["icons/skills/melee/unarmed-punch-fist.webp", "icons/magic/earth/strike-fist-stone.webp"] ) {
+      const a = await attackOf(beastly(img));
+      expect(a.hands).toBe(1);
+      expect(holds.needsHands(daggerheartRules, a)).toBe(true);
     }
     for ( const img of ["icons/weapons/daggers/dagger-twin-green.webp", "icons/skills/melee/sword-shield-stylized-white.webp", "", undefined] ) {
       const a = await attackOf(beastly(img));
