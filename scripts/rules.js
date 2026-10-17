@@ -310,14 +310,11 @@ export const daggerheartRules = {
     return { move: Math.ceil((u.spec.speeds?.walk ?? 30) / 2) };
   },
   /**
-   * Nobody gets a free strike at a foe that moves off: Daggerheart has none (a feature may say otherwise). A reaction
-   * feature of its own (an adversary's Thorny Armor) answers one thing a round.
+   * Nobody gets a free strike at a foe that moves off: Daggerheart has none (a feature may say otherwise), so these rules
+   * have no opportunity. A reaction feature of its own (an adversary's Thorny Armor) answers one thing a round.
    */
   reactions(u) {
     return u?.spec?.reactions?.length ? 1 : 0;
-  },
-  opportunity() {
-    return null;
   },
 
   /* The fight -------------------------------------------------------------- */

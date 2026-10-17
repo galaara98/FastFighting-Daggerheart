@@ -368,3 +368,10 @@ describe("what it would do (\"Let this character decide\"), from its sheet", () 
     expect(new DaggerheartAdapter().tacticHints(river, null, {})).toEqual({});
   });
 });
+
+describe("the reactions a player chooses about", () => {
+  test("its own reaction features; no opportunity strike (Daggerheart has none)", () => {
+    const list = new DaggerheartAdapter().reactionsOf({ reactions: [{ id: "a.thorny", label: "Thorny Armor" }] });
+    expect(list).toEqual([{ id: "a.thorny", label: "Thorny Armor" }]);
+  });
+});
