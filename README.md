@@ -167,4 +167,4 @@ MIT for this module's code. Daggerheart is by Darrington Press; this module play
 
 ---
 
-Developers: see [CODING_README.md](CODING_README.md), and [FastFighting Core](https://github.com/galaara98/FastFighting) with its [developer docs](https://github.com/galaara98/FastFighting/blob/main/CODING_README.md).
+Developers: see [CODING_README.md](CODING_README.md), and [FastFighting Core](https://github.com/galaara98/FastFighting) with its [developer docs](https://github.com/galaara98/FastFighting/blob/main/CODING_README.md). The numbers behind it all: [STATS_AND_FORMULAS_README](https://github.com/galaara98/FastFighting/blob/main/STATS_AND_FORMULAS_README.md).
