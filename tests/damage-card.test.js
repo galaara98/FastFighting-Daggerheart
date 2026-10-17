@@ -104,11 +104,19 @@ describe("a damage card applied, through the system", () => {
   };
 
   test("its damage times the GM's multiplier (and the creature's own damage-taken multiplier), its types, whether it's direct", async () => {
-    for ( const [multiplier, taken, total] of [[1, 1, 9], [2, 1, 18], [0.5, 1, 5], [1, 2, 18]] ) {
+    for ( const [multiplier, taken, total] of [[1, 1, 9], [2, 1, 18], [0.5, 1, 4.5], [1, 2, 18], [0.5, 1.5, 7]] ) {
       const token = raider({ taken });
       await adapter.applyDamageCard(card({ damage: 9, types: ["magical"], isDirect: true }), token, { multiplier });
       expect([multiplier, taken, token.actor.calls]).toEqual([multiplier, taken, [{ how: "damage", args: { main: { total, options: { damageTypes: ["magical"], fullRestore: false, itemId: null } }, resources: {} }, isDirect: true }]]);
     }
+  });
+
+  test("a half (a save's share, the GM's Half): halved before the thresholds and left as it comes, as the system's own save is", async () => {
+    // (9 halved is 4.5: a Minor hit against a Major threshold of 5, one Hit Point; rounded up it would have been two.)
+    const token = raider({ hp: 0 });
+    await adapter.applyDamageCard(card({ damage: 9 }), token, { multiplier: 0.5 });
+    expect(token.actor.calls[0].args.main.total).toBe(4.5);
+    expect(token.actor.system.resources.hitPoints.value).toBe(1);
   });
 
   test("the undo record: the Hit Points marked as they were; statuses laid along the way come off, those it had stay", async () => {

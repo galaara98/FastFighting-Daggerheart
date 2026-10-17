@@ -5,8 +5,9 @@
  * Stress marked (what it took), and defeated as the world says. An NPC: how it ended up (it marks nothing). Any of them:
  * the conditions it gained or lost (Vulnerable, Hidden, Restrained), as the system's statuses. The GM's Fear
  * (the world's), by as much as the turn moved it. Consumables used come off what it carries; gold or an item it gave up
- * (a deal, a demand, a theft) goes to whoever it went to. A player's damage card, applied through the system's own
- * damage handling. And what a fight changes, in words, for the planner.
+ * (a deal, a demand, a theft) goes to whoever it went to. A damage card (a player's, or one the system rolled in a turn
+ * FastFighting plays), applied through the system's own damage handling. And what a fight changes, in words, for the
+ * planner.
  *
  * Undo record shape (consumed by the core, to rewind a turn or the whole encounter):
  *   { tokenUuid, actorUuid, actorUpdate, itemUpdates: [{id, update}], createdItems, deletedItems, createdEffects,
@@ -276,10 +277,13 @@ function armorOf(actor) {
 }
 
 /**
- * A player's damage card (or heal) applied to one token through the system's own Actor#takeDamage (resistances,
- * thresholds to Hit Points marked, a character's Armor Slots, its hooks and triggers) or Actor#takeHealing. `multiplier`
- * (the GM's Half or Double) goes on the Hit Point damage, as a save's does in the system, and on all a heal restores. The
- * target's damage-taken multiplier applies, as the system's Apply does; a save's result doesn't (the GM's call).
+ * A damage card (or heal) applied to one token through the system's own Actor#takeDamage (resistances, thresholds to
+ * Hit Points marked, a character's Armor Slots, its hooks and triggers) or Actor#takeHealing: a player's, a strike's
+ * rollStrike rolled, or an action's damage rollDamage rolled (action-card.js). `multiplier` (the GM's Half or Double; a
+ * save's share) goes on the Hit Point damage as the system's own Apply puts a save's on it: after the target's
+ * damage-taken multiplier (rounded up), before its thresholds, a half left as it comes (9 halved is 4.5, short of a
+ * threshold of 5). On a heal, on all it restores (rounded up). The card's own save results aren't read (FastFighting's
+ * multiplier, or the GM's call).
  * Returns undo records: the resources it changed, as they were (actorUpdate); Armor Slots on armor (itemUpdates) and on
  * the character's own armor effects (taken off and put back as they were); the GM's Fear (a setting); and statuses laid
  * along the way come off (statusesBefore).
@@ -304,7 +308,7 @@ export async function applyDaggerheartDamage(message, tokenDoc, { multiplier = 1
   const main = healing ? null : rollData(sys.damage?.main);
   if ( main ) {
     const taken = Number(actor.system?.rules?.attack?.damage?.hpDamageTakenMultiplier);
-    main.total = Math.ceil(main.total * (Number.isFinite(taken) ? taken : 1) * times);
+    main.total = Math.ceil(main.total * (Number.isFinite(taken) ? taken : 1)) * times;
   }
   if ( !main && !Object.keys(resources).length ) return [];
   const undo = undoRecord(tokenDoc, actor);

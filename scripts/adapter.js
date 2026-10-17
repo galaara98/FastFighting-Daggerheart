@@ -43,6 +43,7 @@ import { commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, d
 import { readDaggerheartTurn, readDaggerheartDamage } from "./read-turn.js";
 import { rollDaggerheartStrike } from "./strike-roll.js";
 import { rollDaggerheartSave, rollDaggerheartCheck } from "./check-roll.js";
+import { useDaggerheartAction, rollDaggerheartDamage } from "./action-card.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
@@ -1019,6 +1020,23 @@ export class DaggerheartAdapter extends SystemAdapter {
    */
   async rollStrike(token, options = {}) {
     return rollDaggerheartStrike(token, options);
+  }
+
+  /**
+   * API 19. An action's own card, as its user shows it from the sheet (action-card.js useDaggerheartAction): a
+   * feature's, a domain card's, nothing rolled, spent or applied; null for a strike rollStrike rolls, one kept out of
+   * the chat, or anything that isn't one of the sheet's actions.
+   */
+  async useAction(token, options = {}) {
+    return useDaggerheartAction(token, options);
+  }
+
+  /**
+   * API 19. The damage of an action that isn't an attack, rolled with the system's own roller once for all it catches,
+   * on a card of its own (action-card.js rollDaggerheartDamage): by type, as rolled; null where the sheet has none.
+   */
+  async rollDamage(token, options = {}) {
+    return rollDaggerheartDamage(token, options);
   }
 
   /**

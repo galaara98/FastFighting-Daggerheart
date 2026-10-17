@@ -49,6 +49,9 @@ export function attackFor(token, action) {
   return item?.type === "weapon" ? item.system?.attack ?? null : null;
 }
 
+/** Whether this helper rolls an attack as a strike: an attack roll with damage, not one its targets roll to resist. */
+export const rollsStrike = attack => !!attack && typeof attack.use === "function" && !!attack.hasRoll && !!attack.hasDamage && !attack.hasSave;
+
 /**
  * This user's target set to a token for a roll: a function that puts the user's own targets back, or null where the
  * token isn't on the scene this user is looking at (the system would read no target).
@@ -67,7 +70,7 @@ function aimAt(target) {
  * A click as the system's buttons read one: Shift down, its own way past the roll's dialogs (the action's, the roll's
  * and the damage's); Alt and Ctrl up, so the roll has advantage or disadvantage only as the action says.
  */
-const click = () => ({ shiftKey: true, altKey: false, ctrlKey: false, metaKey: false, stopPropagation() {}, preventDefault() {} });
+export const click = () => ({ shiftKey: true, altKey: false, ctrlKey: false, metaKey: false, stopPropagation() {}, preventDefault() {} });
 
 /** The strike as its card holds it, once the card holds its damage or LANDING_MS has passed. */
 async function landed(id, tokenId) {
@@ -93,7 +96,7 @@ async function landed(id, tokenId) {
 export async function rollDaggerheartStrike(token, { action, target, secret = false } = {}) {
   const attack = attackFor(token, action);
   // (An attack roll with damage: not one its targets roll to resist, which the engine plays as a save.)
-  if ( !attack || typeof attack.use !== "function" || !attack.hasRoll || !attack.hasDamage || attack.hasSave ) return null;
+  if ( !rollsStrike(attack) ) return null;
   const restore = aimAt(target);
   if ( !restore ) return null;
   // (This roll's workflow, as the system starts it; the steps FastFighting does itself, emptied while they run.)

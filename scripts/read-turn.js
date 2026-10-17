@@ -10,7 +10,8 @@
  * that told nothing else, {type: "handoff"}).
  * Each event says whether it's `sure`. A damage or healing card is also read on its own as it's made
  * (readDaggerheartDamage), for the core to apply or put before a GM; a strike FastFighting had the system roll, at
- * the token it struck (readDaggerheartStrike); and a save or a check it had the system roll (readDaggerheartCheck).
+ * the token it struck (readDaggerheartStrike); a save or a check it had the system roll (readDaggerheartCheck); and the
+ * damage of an action it had the system roll (readDaggerheartDamageRoll).
  */
 import { tokenIdIn as tokenIdOf } from "./core.js";
 
@@ -191,6 +192,24 @@ function damageByType(m) {
   if ( main > 0 ) out[typeOf(m.system.damage.main)] = main;
   const stress = totalOf(m.system?.damage?.resources?.stress);
   if ( stress > 0 ) out.stress = stress;
+  return Object.keys(out).length ? out : null;
+}
+
+/**
+ * A damage card's damage by type, as the system rolled it for an action FastFighting asked it of (action-card.js): its
+ * main roll under its type (as rolled, before the targets' resistances and thresholds; one that came to nothing, 0, the
+ * system's roll still), and the Stress it marks (any it rolls, where it rolls nothing else). Null for no damage roll:
+ * healing, another card.
+ * @param {ChatMessage} m
+ */
+export function readDaggerheartDamageRoll(m) {
+  const sys = m?.system;
+  if ( !sys || !ROLL_CARDS.includes(m.type) || sys.hasHealing ) return null;
+  const out = {};
+  const main = totalOf(sys.damage?.main);
+  if ( main !== null ) out[typeOf(sys.damage.main)] = main;
+  const stress = totalOf(sys.damage?.resources?.stress);
+  if ( stress !== null && (stress > 0 || main === null) ) out.stress = stress;
   return Object.keys(out).length ? out : null;
 }
 
