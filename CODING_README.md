@@ -4,9 +4,9 @@ How this helper plugs into FastFighting Core, what each file does, the tables it
 
 ## Requirements
 
-- Foundry v14; the `daggerheart` system 2.10.0 or later (`relationships.systems` in `module.json`); FastFighting Core (`fast-fighting`) 0.3.0 or later (`relationships.requires`).
-- FastFighting Core's API version is `major.bug` (`api.version` "18.0", `api.major` 18, `api.bug` 0). The helper decides compatibility; the core never refuses it. `KNOWN_API` in `scripts/main.js` lists the API majors this helper is known to work with, currently [18, 19]. When a new core major arrives, test the helper with it and add the major to `KNOWN_API`.
-- The helper relies on what API 18 brings: rolls by who rolls, the system's own round, shared pools, traits from parts, tactics answers with their reasons and what a character offers and expects, the shared sheet tools (statuses, undo records, an item handed over, a sheet's text, a number setting), and the outcome's common lines.
+- Foundry v14; the `daggerheart` system 2.10.0 or later (`relationships.systems` in `module.json`); FastFighting Core (`fast-fighting`) 0.4.0 or later (`relationships.requires`).
+- FastFighting Core's API version is `major.bug` (`api.version` "19.0", `api.major` 19, `api.bug` 0). The helper decides compatibility; the core never refuses it. `KNOWN_API` in `scripts/main.js` lists the API majors this helper is known to work with, currently [19]. When a new core major arrives, test the helper with it and add the major to `KNOWN_API`.
+- The helper relies on what API 18 brought, and API 19's system rolls (below): rolls by who rolls, the system's own round, shared pools, traits from parts, tactics answers with their reasons and what a character offers and expects, the shared sheet tools (statuses, undo records, an item handed over, a sheet's text, a number setting), and the outcome's common lines.
 
 ## How it plugs in
 
