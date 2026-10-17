@@ -10,9 +10,7 @@
  * that told nothing else, {type: "handoff"}).
  * Each event says whether it's `sure`.
  */
-
-/** The token id inside a uuid ("Scene.x.Token.y.Actor.z"), or null. */
-const tokenIdOf = uuid => (typeof uuid === "string" && uuid.includes("Token.") ? uuid.split("Token.").pop().split(".")[0] : null);
+import { tokenIdIn as tokenIdOf } from "./core.js";
 
 /** The Hope and Fear dice of a Duality roll: {hope, fear}, or null for a d20. */
 function dualityOf(roll) {
