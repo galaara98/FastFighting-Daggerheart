@@ -39,7 +39,7 @@ A character rolls its Hope and Fear d12s plus its modifier against the Difficult
 
 ### Hope, Fear and Stress
 
-**Hope** is each character's resource. It pays for Hope features, Help an Ally and Experiences. Before rolling, a character spends a Hope on its best Experience when one fits and the bonus is worth it: a big bonus for a conserve **Resources** answer, a fair one for balanced, any for nova. Unless it's nova, it keeps three Hope for its class's Hope feature, except on a roll unlikely to work.
+**Hope** is each character's resource. It pays for Hope features, Help an Ally and Experiences. Before rolling, a character spends a Hope on its best Experience when one fits and the bonus is worth it: a big bonus for a conserve **Spell slots, focus and limited abilities** answer, a fair one for balanced, any for nova. Unless it's nova, it keeps three Hope for its class's Hope feature, except on a roll unlikely to work.
 
 **Fear** is the GM's pool, shared by every adversary, at most 12. Fear features and extra spotlights draw on it. The planner's Daggerheart row sets the **Fear** going in (the world's, to start; Do it For Real Now writes back what's left) and **Spending Fear**: on a GM turn one adversary takes the spotlight, and a Fear brings one more.
 
@@ -51,7 +51,7 @@ A character rolls its Hope and Fear d12s plus its modifier against the Difficult
 
 ### Hit Points, thresholds and Armor Slots
 
-The core deals the damage; the helper turns it into Hit Points marked. Resistance halves damage, immunity ignores it, reduction comes off; then damage under Major marks 1 Hit Point, Major 2, Severe 3, and twice Severe 4 with the system's **Massive Damage** rule. Marking an Armor Slot takes a hit down a step. Armor Slots are Daggerheart's shield, so the **Shields** answer decides how freely a character marks one: against any hit (always), Major or worse (sparingly), or only Severe (never). No Armor Slot lessens direct damage.
+The core deals the damage; the helper turns it into Hit Points marked. Resistance halves damage, immunity ignores it, reduction comes off; then damage under Major marks 1 Hit Point, Major 2, Severe 3, and twice Severe 4 with the system's **Massive Damage** rule. Marking an Armor Slot takes a hit down a step. Armor Slots are Daggerheart's shield, so the **Shield or defending** answer decides how freely a character marks one: against any hit (always), Major or worse (sparingly), or only Severe (never). No Armor Slot lessens direct damage.
 
 ### Death moves
 
@@ -131,7 +131,7 @@ Do it For Real Now writes each turn onto the sheets as it's played:
 - **An adversary:** Hit Points and Stress marked; beaten, the status the world's Defeated setting gives adversaries (else Defeated), or Dead when one who would kill beat it; its combatant defeated; hidden when it fled.
 - **A companion:** the Stress it marked; out of the fight as the world's Defeated setting says for companions.
 - **An NPC:** how it ended.
-- **Anyone:** Vulnerable, Hidden and Restrained, put on or taken off by the fight or by the GM in the Battle Vantage; gold or an item given up (a deal, a demand, a theft), to whoever took it.
+- **Anyone:** Vulnerable, Hidden and Restrained, put on or taken off by the fight or by the GM in the Battle Vantage; gold or an item given up (a deal, a demand, a theft), to whoever took it, if that's a character.
 - **The GM's Fear,** written to the world.
 
 A player's spotlight is read from the system's roll cards: an attack and its damage, healing, and a Presence roll as words for the GM to confirm. A roll with Fear, or one that failed, hands the spotlight to the GM. **Rewind** takes one turn back; **Rewind This Encounter**, all of it.
