@@ -1,0 +1,140 @@
+# FastFighting Daggerheart: developer notes
+
+How this helper plugs into FastFighting Core, what each file does, the tables it keeps, and how to test it. For what it does at the table, see [README.md](README.md). For the core's adapter API, rules object and hooks, see the core's [developer docs](https://github.com/galaara98/FastFighting/blob/main/CODING_README.md).
+
+## Requirements
+
+- Foundry v14; the `daggerheart` system 2.10.0 or later (`relationships.systems` in `module.json`); FastFighting Core (`fast-fighting`) 0.3.0 or later (`relationships.requires`).
+- FastFighting Core's API version is `major.bug` (`api.version` "18.0", `api.major` 18, `api.bug` 0). The helper decides compatibility; the core never refuses it. `KNOWN_API` in `scripts/main.js` lists the API majors this helper is known to work with, currently [18]. When a new core major arrives, test the helper with it and add the major to `KNOWN_API`.
+- The helper relies on what API 18 brings: rolls by who rolls, the system's own round, shared pools, traits from parts, tactics answers with their reasons and what a character offers and expects, the shared sheet tools (statuses, undo records, an item handed over, a sheet's text, a number setting), and the outcome's common lines.
+
+## How it plugs in
+
+`scripts/main.js`:
+- `init`: registers the two world settings, `loreBoost` (`lore.js`, through the core's `numberSetting`: 1.25 to 3, step 0.05, default 2.4) and `tiedStopsSpells` (`tied-up.js`, Boolean, default on).
+- `fastFighting.init`: stays inactive outside a `daggerheart` world (a console warning). Below the oldest major in `KNOWN_API`, it doesn't register and tells the GM the core is too old (`FFDAGGERHEART.CoreTooOld`). On any other major it isn't known to work with, it registers and warns the GM once that it hasn't been tried with that core (`FFDAGGERHEART.CoreUntested`). To register, it calls `api.registerAdapter("daggerheart", DaggerheartAdapter, { priority: 10, source: MODULE_ID })`, `api.adviseTranslation(MODULE_ID, game.system.title, KNOWN_TRANSLATIONS)` (Spanish: `daggerheart-es`) and `api.keepEnglish(MODULE_ID)` (`hardcoded-toEN.json`).
+- `ready`: warns a GM with `FFDAGGERHEART.NeedsCore` when the core isn't active.
+
+`scripts/core.js` re-exports `../../fast-fighting/scripts/core-api.js`: in Foundry the core sits one folder over in `Data/modules`. Every import from the core goes through it.
+
+When new functionality needs something the core can't express "close enough" with what it already offers, request a new core hook rather than forcing a poor fit or working around the core.
+
+## Files
+
+| File | What it does |
+| --- | --- |
+| `main.js` | Hooks, settings registration, the API check (above). |
+| `adapter.js` | `DaggerheartAdapter`: reads sheets into CombatantSpecs, the planner row, live-battle methods. |
+| `rules.js` | `daggerheartRules`, the rules object (pure, no Foundry globals): the spotlight, rolls, harm, death moves, holds. |
+| `actions.js` | The system's actions as ActionSpecs, read from data (pure): attacks, damage, healing, effects, summons, reactions, maneuvers, trait moves, Help an Ally. |
+| `dice.js` | The Duality Dice and the d20: chances and rolls. |
+| `traits.js` | The four hidden scores from a sheet (`deriveDaggerheartTraits`), leaders (`rankDaggerheartLeaders`), beasts (`isBeast`), subclass and lore keys. |
+| `auto.js` | Setting up by itself: playstyle hints, "Let this character decide" answers, the biography for keywords (pure). |
+| `commit.js` | Live battles written back: a turn's changes, the GM's Fear, a concession; the planner's outcome lines. |
+| `read-turn.js` | A player's spotlight read from the system's chat cards. |
+| `lore.js`, `tied-up.js` | The two world settings. |
+| `words.js` | `t()` (this module's `FFDAGGERHEART.*` keys), `systemWord()` and `resourceWord()` (the system's own `DAGGERHEART.*` word where it has one, else this module's). |
+| `core.js` | The one import path into the core. |
+
+## The adapter
+
+`DaggerheartAdapter extends SystemAdapter` (`static systemId = "daggerheart"`):
+
+- `canHandle`: actor types `character`, `adversary`, `environment`, `companion`, `npc`.
+- `toCombatantSpec(tokenDoc, { summoned })`: one private reader per type (below). A creature read for a summoning (`summoned`) summons nobody in turn.
+- `playstyleHints`, `tacticHints`, `biography`: `auto.js` (`daggerheartHints`, `daggerheartTactics`, `biographyOf`).
+- `deriveTraits`: `traits.js deriveDaggerheartTraits`. `detectLeaders`: `rankDaggerheartLeaders`.
+- `plannerSettings` / `applyPlannerSettings`: the Daggerheart row, `fear` (a select, 0 to `FEAR_MAX`, default the world's `ResourcesFear`) and `spending` (pills: `sparing`, `steady` default, `free`); stored as `spec.options.system = { fear, spending }`.
+- `describeEncounter`: the GM's Fear before and after (`commit.js describeFear`), or nothing when it didn't move.
+- `itemCatalog`: categories `weapon`, `armor`, `consumable`, `loot`; no materials or rarities.
+- `term`: `ac` is Difficulty, `hp` is HP, `money` is the world's currency title when the GM renamed it (Homebrew settings), else the system's Gold.
+- `resourceLabel`: `hope`, `stress`, `fear`, `armor` in the system's words.
+- Live: `supportsLive` true; `liveTurns` `"spotlight"`; `giveSpotlight` uses the daggerheart tracker's own `setCombatantSpotlight` / `clearTurn` when it shows that combat (its countdowns and action tokens go with it), else the core's; `livePools` `{ fear }`; `commitChanges`, `commitTurn` (Fear), `commitConcession`, `describeOutcome` (`commit.js`); `readTurn` (`read-turn.js`); `sheetCarries`, `conditionLabel`, `conditionChoices` (the three conditions, below).
+
+### Reading a sheet
+
+- **Character:** `duality: true`; Hit Points, Stress (as "left"), Hope (`hopeMax`, default 6), Armor Slots (`armorMax`, the sheet's armor score); `hopeReserve` 3 when it has a Hope action costing 3 or more; `defenses.ac` its Evasion plus its traits; `initiative.mod` its Instinct; walk Close, `sprint: { range: Far, mod: Agility }`; weapons in as many hands as their burden (two-handed: 2), else unarmed (Proficiency in d4s, Strength or Finesse); the actions on its features and loadout cards; the trait moves and Help an Ally; consumables as `item:<id>` resources; `sizeUp` (the better of Knowledge and Instinct; label Analyze or Perceive; `boost` the `loreBoost` setting); `firstAid` the same trait; `theft` Finesse; `doorWork` Strength / Finesse; `escapeWork` the better of Strength and Agility (`bonds`: of Strength and Finesse); `escapeDC` 12 + Strength; talking with Presence, resisting at 12 + Presence (stealing: 12 + Instinct); gold and stowed gear in `valuables`.
+- **Adversary:** `level` from its tier (`TIER_LEVEL`: 1, 3, 6, 9); `adversaryType`; `kinKey` (its compendium source, else its id: Minions of a kind); `minion` and `relentless`, the number in a feature's name ("Minion (3)": a Minion's feature with no actions; "Relentless (2)": a Solo's feature with a Fear-cost action); a Minion's thresholds 0; `hordeHp` and a second, lesser attack for a Horde (`usable` picks by Hit Points marked); its standard attack with riders (`attackMove`); action features (`featureMove`; a Minion's Fear-cost actions, its Group Attack, are skipped); reaction features (`toReactionSpec`; those with a countdown are skipped); `critOn` its critical threshold; talking with its best Experience (+2 for a Social one), none for a beast; everything against its Difficulty; `escapeWork.mod` its attack modifier; `escapeDC` its Difficulty; gold by `adversaryGold`.
+- **Environment:** `kind: "hazard"`, `untargetable`, fearless and mindless; its action features only (reaction features answer what the party does there, which the engine doesn't play); summons kept for when the core's hazards summon; `escapeDC` its Difficulty.
+- **Companion:** `companionRoll: true`; `flags.masterActorId` names its partner's actor (the core sets `flags.masterId` to the partner's combatant, and `rules.js initRun` pairs them); its attack with its partner's Spellcast and Proficiency, `hands: 0`; `iwr.dh.companion` (any damage marks one Stress; its Stress is its Hit Points here); `escapeDC` 12.
+- **NPC:** one Hit Point, no actions; Difficulty (else 12) for its defense, its grip and everything tried on it.
+
+Everywhere: `ranges()` (the Range Measurement rule when it's on: Very Far is twice Far, at least 120), `iwr.dh` (`harmOf`: thresholds; resistance, immunity and reduction by physical and magical; `reduce` steps; `minorImmune`; `massive` from the Massive Damage rule; `multiplier`), `conditionImmune` (the sheet's), starting conditions from the token's statuses, `weakSpot` (`iwr.exploit`: the damage kind it doesn't resist; it only says where to aim).
+
+### Recognising SRD content
+
+Data first; ids where the data says nothing; the name only as a fallback:
+- **Subclasses** by the id of the compendium entry they came from (`traits.js SUBCLASS_IDS`), else the name as a slug.
+- **Ancestries and communities** by their lore reference, else the name as a slug.
+- **Feature moves** (`actions.js FEATURE_MOVES`): the SRD adversary features that move a foe or take its footing, by feature id (kept when an adversary is imported or copied). `to` (knocked back to a band), `by` (knocked back by a band's distance), `in` (pulled into Melee), `maneuver` (`trip`, `grapple`, `constrict`), `action` (only that one of its actions), `attack` (a rider on the standard attack), `hurt` (only on a hit that marks Hit Points). Left out: knockbacks that only answer a blow (Vengeful Fate), Fear-cost riders (the Elephant's Toss), moves some other way.
+- **Summon Fear** (`actions.js SUMMON_FEAR`): SRD summonings whose data leaves out the Fear their words cost: Head Vampire's The Hunt Is On 2, Arch-Necromancer's Open the Gates of Death 1, Dryad's Grow Saplings 1, Divine Usurpation's Difilers Abound 2, Megastorm's Stormheart 1, Abandoned Mine's Into the Spider's Web 1.
+- **Natural attacks** by icon path (`BODY_ICON`: `icons/creatures/`, `icons/commodities/{biological,bones,claws}/`, `icons/skills/melee/unarmed-`, `icons/magic/earth/strike-fist`); a fist (`FIST_ICON`) needs one hand.
+
+### Actions (`actions.js`)
+
+- An `attack` with a roll and damage is a strike (its trait, the spellcasting trait for a spellcast, or the adversary's attack modifier); with a reaction roll it forces instead, a save; with only effects, a control action. A spellcast attack is a spell attack.
+- `damage` without a roll simply happens. Damage parts (`damagePartsOf`): dice by Proficiency for `prof`, typed physical or magical; Stress damage as `stress`; direct damage (the system's `damage.direct`) marked `direct`, for `applyIwr`.
+- `healing` that clears Hit Points is a heal; one that gives Hope or clears Stress is a buff that gains them (`gainSpec`, `resourcesGained`).
+- Effects the engine knows: bonuses to rolls and damage, Evasion, Vulnerable, Hidden, Restrained (on itself, a friend or a foe).
+- `summon`: `toSummonSpec`, with `summonCount` (the formula averaged with the core's `formulaNumber`, `@partySize` filled in, any other `@` figure 0, between 0 and `SUMMON_MOST` 8). No duration: they stay until beaten. A summoning brought by a countdown isn't played.
+- Costs (Hope, Stress, Fear, an Armor Slot: the first of them) and uses carry over. Countdowns, macros and beastforms aren't played.
+- Area targets by size (`AREA_TARGETS`): Melee 1, Very Close 2, Close 3, Far 4, Very Far 5.
+- `traitMoves`: Grapple (the core's grapple; on a critical also Restrained, broken at 12 + Strength), Maneuver (the core's feint: Vulnerable for a round), Hide (a self buff against 12: Hidden), Shove (the core's shove: 10 feet, 25 on a critical, at the default ranges). No botched grapple or shove: the Duality Dice don't fail critically.
+- `helpAnAlly`: a Hope, free, once a turn, a d6 on a friend's next attack or check within Close (never a reaction roll).
+- `toReactionSpec`: a reaction feature that harms on its own (damage, or a reaction roll with damage) answers being hurt (`"damaged"`), within its range; paid in its own Stress or nothing. Not played: a standard attack back, a Fear cost, more damage on its own hit, what it does to itself, Fear it gains the GM.
+
+## The rules object (`rules.js`)
+
+Daggerheart's values for the core's rules keys (the core's docs define each key):
+
+- **Turn:** `mainPool` `"action"`; `movement` `"feet"`; `turn(u)` one action and a move within Close (sprinting: the move is the action, up to Far made, Close missed); `startTurn` decides a sprint (playstyle rush, positioning on, no foe within Close, not held) and joins Minions to their kind; `costOf` an action unless `economy: "free"`; `basicAction`, `talkCost`, `tauntCost`, `stealCost` one action; `feintCost` none; `standCost` half its walk; `reactions(u)` 1 with a reaction feature, else 0 (Daggerheart has no opportunity strikes).
+- **The spotlight:** `initUnit`, `initRun` (`run.sharedPools.fear` from `options.system.fear`, else one per player character, at most `FEAR_MAX` 12; spending; companions' partners), `*roundTurns` (each player character, a GM turn after a hand-off, then the party's other friends and anyone not yet in the fight; with no player character able to act, everyone in order), `nextSpotlight` (live: after a hand-off, the adversary that has waited longest; else the next player character). A GM turn spotlights the adversary waited longest (Relentless: up to X times, after anyone new), then spends a Fear per extra spotlight while Fear is above `FEAR_SPENDING[spending].keep`, up to `.more`.
+- **Rolls:** `dieOf` the Duality Dice for player characters and companions, else 20; `roll` (an Experience first, `experienceFor`: `HOPE_SPENDING` worth 0.2 / 0.12 / 0.06, keep for conserve and balanced, fits 60% of the time; then Hope, Fear, a critical's Hope and Stress, the hand-off; a companion's Hope is its partner's); `distribution`; `degreeOfSuccess` (Duality: the total; d20: a critical at its threshold); `attackPenalty` 0; `rollPoint` 0.1; `minimumDamage` 0; `saveMultiplier` (a success avoids it, or halves it when the feature says so); `toughSave` `"strength"`; `critical` (the dice's maximum on top).
+- **Harm:** `applyIwr` (resistance halves, immunity ignores, reduction subtracts; `marksFor` thresholds and Massive Damage; Minion overflow; severity steps; `minorImmune`; an Armor Slot by `marksArmor`, never against direct damage: `always` any hit, `spare` 2+, `never` 3, unanswered 2+ or a Minor hit with more than half its slots; the multiplier; Stress it can't mark as Hit Points; estimates without a target count a slot against 2+ and 0.3 per Stress); `usable` (a Horde's attacks); `fallDamage` (by feet against the SRD's bands); `fallProne` false; `collisionDamage` (a knockback's 1d20+5 direct physical, or the move's own); `isImmune` (immune when the effect lays any of the three conditions and it's immune to each one laid); `conditionWeight` (restrained 0.2, immobilized 0); `conditionMods` (vulnerable `defAdv` 1, hidden -1); `resistShare` 0.5; `modifiers.attack` advantage against the Vulnerable, disadvantage against the Hidden; `modifiers.exposed` Vulnerable.
+- **Falling:** `onDropped` (adversaries beaten, Minion overflow; player characters `deathMoveOf`: `DEATH_LEANS` by playstyle, else Risk It All with Retreat "never" or brave 80+, else Avoid Death; struck while out cold, the Duality Dice; Blaze of Glory as `lastStand`); `onHealed`; `recoveryCheck` none; `firstAidDC` 12 and `firstAid` (a success stable, a critical a Hit Point); `sizeUpDC` the target's Difficulty; `afterRoll` (Hidden ends on an attack); `afterHarm` (the death-move line).
+- **Doors:** `door` `{ ac: 10, hp: 12, threshold: 0, forceDC: 12, pickDC: 12 }`; `doorCosts` open free, force and pick an action.
+- **Holds:** `escapeFrom` (a sheet's Restrained: the tier's typical Difficulty, a friend's check), `bondsDC` (typical + 2), `escapeCost` and `untieCost` an action, `breakFree` (Duality for characters and companions with `escapeWork`; an adversary clears a hold with no roll and rolls its d20 only for bonds), `tiedStopsSpells` (the setting).
+- **Typical:** `ac` and `dc` 11 + ceil(level / 3) (12 at level 1); `save` and `skill` 1.
+- **Resources:** `gainResource` (Hope up to its maximum, player characters only; Stress cleared as far as it's marked), `resourceWorth` (`HOPE_WORTH` 0.3, `STRESS_WORTH` 0.25, ×1.5 with no Stress left, only as far as there's room), `capture` (Hope, Stress, Armor Slots, `armorMarked`, the death move, a scar, consumables, Fear).
+- **Other:** `retreatAt` 0.34 (a Hit Point or two left); `storyDamageType` (magical as force, physical as slashing); `storyCondition` (Restrained told as immobilized).
+
+## Personality and "Let this character decide"
+
+`traits.js`:
+- A character starts from `PC_BASELINE` and adds parts: traits against its class's suggested spread (`TRAIT_LEANS`, per point off: Agility brave 1; Strength brave 2.5; Finesse selfish 2; Instinct tactical 2; Presence brave 1.5, loyal 2, selfish -1; Knowledge tactical 3), level against `USUAL_LEVEL` 3 (tactical), domains (`DOMAIN_LEANS`: the class's two at half weight, a multiclass's at a quarter, domain cards sharing half), subclass (`SUBCLASS_LEANS`, ×1 to ×1.5 by depth; a multiclass's at half), ancestry (`ANCESTRY_LEANS`, only where its features say so), community (`COMMUNITY_LEANS`), features and loadout cards (`featureLeans`: aimed at allies loyal +2 selfish -1; healing others selfish -1; striking for its own Hit Points or at foes' Hope brave +2 each; summoning, not as a reaction, tactical +2; a Rally die loyal +2), scars (brave -3 each, up to 3), Stress slots against `USUAL_STRESS` 6 (brave ±1.5 each, at most 6), and not in the world's party (loyal -10).
+- An adversary starts from `TYPES` by type, brave +5 a tier, a beast tactical -15 (`isBeast`: `BEAST` motives without `MIND` ones; never a Social, Leader or Support), a Solo fearless; then its features and immunity (brave +4) or resistance (+2) by damage kind. A companion starts from `COMPANION`, an NPC from `BYSTANDER`.
+- Leaders: a character's score is its Presence; an adversary's 3 for a Leader, 2 for a Solo, plus its tier - 1; `leaderBonus` by score.
+
+`auto.js`:
+- `DOMAINS` (a class's two add up): Blade Brawler 0.4, Impatient 0.1; Bone Speed-Runner 0.3, Instigator 0.1; Valor Tank 0.5, Martyr 0.3; Midnight Thief 0.4, Wallflower 0.3; Grace Diplomat 0.4, People-Pleaser 0.2; Codex Lore-Collector 0.5, Puzzle-Maniac 0.2; Splendor Enabler 0.5, Moralist 0.3; Sage Lore-Collector 0.2, Enabler 0.2; Arcana Un-Mundane 0.5, Wildcard 0.1.
+- `TYPES`: Bruiser Brawler 0.6, Tank 0.3; Horde Brawler 0.4, Relentless 0.3; Leader Wants to Lead 0.8; Minion People-Pleaser 0.3, Brawler 0.2; Ranged Wallflower 0.6; Skulk Wallflower 0.4, Thief 0.3, Cruel 0.2; Social Diplomat 0.7, Peacekeeper 0.2; Solo Relentless 0.6, Instigator 0.2; Support Enabler 0.6. A beast adds Brawler 0.3 and Relentless 0.2, and takes off Diplomat and Peacekeeper 1 and Wants to Lead 0.5.
+- `characterTactics`: favorite attack its primary weapon; style by `STYLE_BY_DOMAIN`, the first match (Valor protector, Dread / Arcana / Codex caster, Midnight skirmisher, Blade front line, Sage ranged, Bone skirmisher, Splendor caster), a front-line or skirmisher class with a Far weapon ranged, a ranged class with a Melee or Very Close weapon front line; a protector targets whoever threatens its friends; Valor retreats only when losing, rescues a fallen friend and rejoins; Shields `always` for a class built on Armor Slots (`buildsOnArmor`) or Valor, else `spare`; healing others `aggressive` for Splendor or a Warden of Renewal, else `balanced`; a healer rescues; Grace talks when opportune; specialties `strong` for a caster with a spell, else `some`; the potion threshold (`POTION_AT` 75, 50, 25: the highest at which its best potion isn't wasted); consumables `freely` for a Hedge witch; Highborne offers a handful, Slyborne expects a handful a tier.
+- `adversaryTactics`: its attack's range first (Far shoots where its type is front-line or sets no style; Melee or Very Close holds the front line where its type sets no style); a healer (`aggressive` for a Support); a summoner seeks help; specialties `strong` for a Solo or Leader, else `some`; then `TYPE_TACTICS`; a Social one with gold offers a handful.
+- `biographyOf`: a character's faith and Experiences in full, its background (bold class questions left out) a little, connections left out; an adversary's or environment's description, motives and tactics, and Experiences in full, its notes a little.
+
+## Live battles (`commit.js`, `read-turn.js`)
+
+- `commitDaggerheartChanges` writes Hit Points marked (a companion's on its Stress, nothing for an NPC), Stress, Hope, a scar, consumables used, Armor Slots marked on the worn armor; then the conditions (`settleConditions`, by `CONDITION_KEYS`: Restrained on when restrained or immobilized is laid, off when one comes off and neither is laid); then how it ended (`settleDefeat`: dead, `beatenStatus` from the world's Defeated automation for adversaries and companions, else `defeated`; unconscious), marking a non-character combatant defeated and hiding one that fled (unless the core's fled mode is `leave`). The Hit Points go first, since the system's Defeated automation reacts to them. Returns an undo record (its shape is at the top of `commit.js`).
+- `commitFearTurn` moves the world's `ResourcesFear` by as much as the turn moved it, with an undo record for the setting.
+- `commitDaggerheartConcession` pays gold through the world's currency (chests, bags, handfuls, coins, ten of each to the next) and hands items over unequipped, to a character only.
+- `readDaggerheartTurn` reads a player's cards: an action roll at a target with damage as an attack (a hit at the target's Difficulty or Evasion, a critical on matching dice), a Presence roll as words for the GM to confirm, healing; a roll with Fear or a failure hands the spotlight off. Each event says whether it's `sure`.
+
+## Development
+
+The tests import FastFighting Core from a checkout beside this one (`../FastFighting`; override with `FASTFIGHTING_CORE`, the core's `scripts` folder). `vitest.config.js` aliases the core's import path to it.
+
+```
+npm install
+npm test
+npm run test:reworded
+```
+
+`npm test` is `vitest run`; `npm run test:reworded` (`vitest run --mode reworded`) runs every test again with every word in the language files reworded (`tests/foundry-i18n.js`), so no test depends on the wording. `tests/load.test.js` loads each script as Node would, to catch imports Foundry would reject.
+
+To run it in Foundry, junction or symlink this folder into `Data/modules/fast-fighting-daggerheart`.
+
+### Words
+
+Every word this module shows is in `languages/en.json`, or the Daggerheart system's own where it has one (Hope, Stress, Fear, the death moves, traits, adversary types, domains, conditions, item and actor types, Gold): the code holds keys, never English (`tests/i18n.test.js` checks). Translating takes only a copy of that file (see Translating in the core's README).
+
+`hardcoded-toEN.json` lists words that stay in English for now, whatever the reader's language: keys of `languages/en.json` (or a group) whose translation would contradict a game system that isn't translated yet. It has the date it was last updated (`lastUpdated`) and the list (`keys`).

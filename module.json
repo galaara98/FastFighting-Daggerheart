@@ -1,7 +1,7 @@
 {
   "id": "fast-fighting-daggerheart",
   "title": "FastFighting Daggerheart",
-  "description": "Daggerheart support for FastFighting Core: reads Foundryborne Daggerheart characters and adversaries, plays the Duality Dice and the spotlight (Hope and Fear, the GM spending Fear), damage thresholds and Armor Slots, Minions and Hordes, and the death moves, and writes live battles' turns back onto the sheets.",
+  "description": "Daggerheart (Foundryborne) support for FastFighting Core: the Duality Dice and the spotlight, Hope, Fear and Stress, damage thresholds and Armor Slots, the death moves, and live battles written back to the sheets.",
   "version": "0.3.0",
   "authors": [
     {

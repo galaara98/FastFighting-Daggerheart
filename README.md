@@ -4,11 +4,11 @@
 > - **Programming:** I am a skilled programmer by profession, but AI was used heavily as a co-pilot.
 > - **Strings:** ALL initial strings were proposed by a LLM to get the concepts out, ALL strings were  tracked to make sure they were re-written (for simple or ttrpg/game specific phrases, approved by) a native speaker.
 
-Daggerheart support for [FastFighting Core](https://github.com/galaara98/FastFighting), the Foundry VTT module that simulates a fight (or a tense standoff) thousands of times, tells the story of one fair draw, and plays it for real on the Combat Tracker, a turn at a time, with **Do it For Real Now**.
+FastFighting Core is a large but fixed set of options: turn orders, rolls, resources, conditions, holds, maneuvers, reactions, summonings and outcomes. Each system helper maps its game onto them. This helper maps Daggerheart, so the Battle Planner simulates Daggerheart fights and **Do it For Real Now** plays them on the Combat Tracker.
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
-- **Needs:** FastFighting Core (API 18)
+- **Needs:** [FastFighting Core](https://github.com/galaara98/FastFighting) 0.3.0 or later
 
 ## Installation
 
@@ -21,153 +21,150 @@ https://github.com/galaara98/FastFighting-Daggerheart/releases/latest/download/m
 
 ## What it reads
 
-- **Characters:** traits, Evasion, damage thresholds, Hit Points, Stress, Hope (and its most, scars and all), Armor Slots, Proficiency and Experiences; the weapons equipped (else an unarmed attack: Proficiency in d4s, Strength or Finesse); the actions on its features (class, subclass, ancestry, community) and on the domain cards in its loadout (not the vault).
-- **Adversaries:** type and tier, Difficulty, thresholds, Hit Points, Stress, Experiences, motives and tactics; the standard attack; the actions of its action features (an SRD feature that knocks a foe back, pulls it in, knocks it over or seizes it, known by its compendium id, is played as that maneuver: Ground Slam flings, Grab and Drag drags, Earth Eruption trips, the Bear's Bite grapples); an SRD passive or reaction feature that knocks back or pulls in whoever its standard attack hits rides that attack, on every hit (the Bear's Overwhelming Force and the Vault Guardian Sentinel's Kinetic Slam to Very Close, on a hit that marks Hit Points; the Greater Water Elemental's High Tide to Close; the Cursed Merfolk's "Get Over Here!" pulls into Melee; a reaction's Stress isn't paid); and its reaction features that harm whoever hurt it (Thorny Armor, Burning, Acid Bath, Warding Sphere ...), each answering a blow that hurts it, once a round, for its Stress where it costs one. An action feature that **summons** calls the creatures it names (read from the system's compendium, as many as its count comes to on average, `@partySize` the party's size) within its range, for its cost; an SRD summoning whose data leaves out the Fear its words cost (the Head Vampire's The Hunt Is On, the Dryad's Grow Saplings ...) costs that Fear here. A **natural attack** needs no free hands: a beast's, or one the system shows with the creature's own body (claws, fangs, a tail, fists). A **Minion** falls to any damage, and with **Minion (X)** each X damage fells another of its kind (summoned ones too); a **Horde** hits for its lesser damage once it has marked half its Hit Points; a **Solo** with **Relentless (X)** can take the spotlight X times in a GM turn. A Minion's **Group Attack** isn't played yet. Its talk is its best Experience; anything tried on it (a hand in its pocket too) is against its Difficulty.
-- **Companions** (a Beastbound ranger's): Evasion, Experiences and attack (its partner's Spellcast to hit and Proficiency in its dice), fighting beside its partner (no free hands needed). Its rolls are its partner's, on the Duality Dice (Hope to the partner, Fear to the GM), and it acts at the end of the round. Any damage marks one of its Stress; at its last, it's out of the fight.
-- **NPCs:** bystanders. Nothing to fight with; a blow puts one out of the fight; talking it round, or robbing it, is against its Difficulty.
-- **Actions,** from their data, never their names: an attack (its trait, or a spellcast with the character's spellcasting trait; an adversary's attack modifier), a reaction roll it forces (a save against the Difficulty), damage without a roll, the Stress an attack marks besides its Hit Points (Stress damage: the Vampire's Draining Bite), healing that clears Hit Points, healing that gives Hope or clears Stress instead (on itself or a friend, for its cost or within its uses: Battle Ritual, Mending Touch; one free any number of times is a trigger's payoff, Swift Step, and isn't played), a summoning (above), and effects (bonuses to rolls, damage and Evasion; Vulnerable, Hidden, Restrained). Their costs (Hope, Stress, an Armor Slot, the GM's Fear) and uses carry over. Ranges are the system's, in feet, from its **Range Measurement** rule.
-- **Personality:** a character starts as the usual hero, and its whole sheet moves it a little, each part shown in the trait's reason:
-  - its traits, against the spread its class suggests (a hero who spread them as its class's guide does moves nothing; a wizard who put its best in Strength is bolder and less of a planner): Knowledge and Instinct make a planner, Strength, Presence and Agility a bold one, Finesse a self-serving one, Presence a loyal one;
-  - its level (experience makes a planner);
-  - its domains, its class's and its domain cards' (Valor bold and loyal, Blade bold, Bone and Codex planners, Midnight self-serving and secretive, Splendor selfless, Grace warm, Sage giving, Arcana impulsive, Dread ruthless);
-  - its subclass (more, the deeper it's gone), ancestry (where its features say so: an infernis fearless, a galapa careful) and community (Slyborne self-serving, Orderborne loyal, Loreborne a planner, Ridgeborne steady ...), known by the system's own ids (the compendium a subclass came from, a lore reference), the name only as a fallback;
-  - its features and the domain cards in its loadout, by what their actions do: help aimed at its allies, mending others, striking at a cost in its own Hit Points or at its foes' Hope, calling help, a Rally die;
-  - its scars (less nerve) and the Stress slots it took on (more), and whether it's in the party (where the world has one).
+It reads what an action or feature does from its data, not its name, so homebrew plays by what it does.
 
-  An adversary's from its type (a Solo bold and fearless, a Skulk cunning, a Minion faint-hearted) and tier; motives such as feeding or hunting make a beast that fights on instinct and won't talk; then its features, by what they do, and the damage it's immune to or resists (bolder). A companion is bonded to its partner (loyal, on instinct), an NPC no fighter (timid), each then moved by its features. Leaders: an adversary Leader (then a Solo), a character by its Presence.
+- **Characters:** traits, Evasion, thresholds, Hit Points, Stress, Hope, scars, Armor Slots, Proficiency, Experiences, gold and consumables; equipped weapons (else an unarmed attack: Proficiency in d4s, Strength or Finesse); and the actions on its features and on the domain cards in its loadout (not the vault).
+- **Adversaries:** type, tier, Difficulty, thresholds, Hit Points, Stress, Experiences, motives and tactics, the standard attack, and its features.
+- **Actions:** attacks, reaction rolls, damage, Stress damage, healing, summonings, and effects (bonuses to rolls, damage and Evasion; Vulnerable, Hidden, Restrained), with their costs (Hope, Stress, an Armor Slot, the GM's Fear) and uses.
 
-## How a fight plays
+## How Daggerheart maps onto FastFighting
 
-- **The Duality Dice:** a character rolls its Hope and Fear d12s plus its modifier against the Difficulty (advantage +d6, disadvantage −d6). With Hope, it gains a Hope; with Fear, the GM gains a Fear; matching dice are a critical success (a Hope, a Stress cleared, critical damage on an attack). Reaction rolls bring neither; against something taking hold of the body (a sickness spreading), the reaction roll is Strength, as the SRD's venoms and sicknesses call for. Before rolling, a character spends a Hope on its best Experience when one fits and it's worth it, keeping three back for its class's Hope feature unless the roll is unlikely to work. Adversaries roll a d20 (advantage: the better of two), a critical at their threshold.
-- **The spotlight:** there's no initiative. Each character takes the spotlight in turn; one whose roll fails, or goes with Fear, hands it to the GM, who spotlights an adversary (the one that has waited longest) and may spend Fear for more. The log says when the spotlight swings and when Fear is spent. The party's other friends act at the end of each round.
-- **Damage:** resistance halves it, immunity ignores it, reduction comes off; then the thresholds: under Major a Hit Point, Major two, Severe three (twice Severe four, with the system's **Massive Damage** rule). A character marks an Armor Slot to take a hit down a step, as its **Shields** answer says (below). Stress damage marks Stress; Stress it can't mark becomes Hit Points. Vulnerable foes are hit with advantage, Hidden ones with disadvantage.
-- **Shoved, knocked back, pulled in:** moved as the core moves anyone (stopped by walls and others in the way). Over a ledge it falls, as the SRD's guide has it by the range fallen: Very Close 1d10+3 physical damage, Close 1d20+5, Far or more 1d100+15. Daggerheart has no prone: nobody lands that way. Knocked back into a wall, or into someone in the way, it takes the SRD's collision damage, 1d20+5 direct physical (no Armor Slot lessens it); whoever it hits takes nothing. A shove or a pull isn't a collision. An adversary's direct damage (its attack's data says so) is direct here too.
-- **Death moves:** a character whose last Hit Point is marked chooses as its playstyles lean (Martyr and Redeem-Seeker: **Blaze of Glory**; Wildcard, Impatient, Brawler, Speed-Runner, Instigator, Vengeful, Relentless: **Risk It All**; Chicken, Fragile, Lazy, Mercenary, Diplomat, Peacekeeper, Skeptic, Wallflower: **Avoid Death**), else by its nerve (the bravest, and anyone who'd never retreat, Risk It All; the rest Avoid Death).
-  - **Avoid Death:** out cold; if the Hope die comes up at or under its level, a scar.
-  - **Risk It All:** the Duality Dice. Hope higher: it clears that many Hit Points and fights on. Fear higher: it dies. Matching: every Hit Point and Stress cleared.
-  - **Blaze of Glory:** one last action, a critical success, and then it dies.
-  - Adversaries whose last Hit Point is marked are defeated; one who would kill kills them.
-- **Talking:** Presence for persuading, threatening and deceiving; an adversary talks with its best Experience (a Social adversary better), and resists with its Difficulty. Beasts don't talk.
+### The spotlight
 
-## Playstyles in Daggerheart
+Daggerheart has no initiative, so the core runs a spotlight instead of a turn order. Each character takes the spotlight in turn. A roll that fails, or succeeds with Fear, hands the spotlight to the GM, so a live battle passes the turn to the adversaries. The GM spotlights the adversary that has waited longest and may spend Fear for more; a Solo with Relentless (X) can take the spotlight X times in a GM turn. The party's other allies, such as a companion, act at the end of each round. In a live battle the Battle Vantage gives the spotlight to whoever FastFighting would pick next, or to whoever the GM picks.
 
-Every perk a playstyle (or a tactics answer) can switch on does something here. Most play as they do in any system (who a character goes for, when it loses heart, whom it listens to, how it talks). These are Daggerheart's own:
+### The Duality Dice
+
+A character rolls its Hope and Fear d12s plus its modifier against the Difficulty (advantage +d6, disadvantage −d6). With Hope it gains a Hope; with Fear the GM gains a Fear; matching dice are a critical success (a Hope, a Stress cleared, critical damage on an attack). Reaction rolls bring neither, and against something taking hold of the body (a spreading sickness) they use Strength, as the SRD's venoms do. Adversaries roll a d20 (advantage: the better of two) and score a critical at their threshold.
+
+### Hope, Fear and Stress
+
+**Hope** is each character's resource. It pays for Hope features, Help an Ally and Experiences. Before rolling, a character spends a Hope on its best Experience when one fits and the bonus is worth it: a big bonus for a conserve **Resources** answer, a fair one for balanced, any for nova. Unless it's nova, it keeps three Hope for its class's Hope feature, except on a roll unlikely to work.
+
+**Fear** is the GM's pool, shared by every adversary, at most 12. Fear features and extra spotlights draw on it. The planner's Daggerheart row sets the **Fear** going in (the world's, to start; Do it For Real Now writes back what's left) and **Spending Fear**: on a GM turn one adversary takes the spotlight, and a Fear brings one more.
+
+- **Sparing:** one more, only while the GM holds more than 4 Fear.
+- **Steady** (the default): one more, while the GM holds more than 1.
+- **Free:** as many more as there is Fear for.
+
+**Stress** is a second track. Features that cost Stress mark it, and so does Stress damage (the Vampire's Draining Bite). Stress a creature can't mark becomes Hit Points.
+
+### Hit Points, thresholds and Armor Slots
+
+The core deals the damage; the helper turns it into Hit Points marked. Resistance halves damage, immunity ignores it, reduction comes off; then damage under Major marks 1 Hit Point, Major 2, Severe 3, and twice Severe 4 with the system's **Massive Damage** rule. Marking an Armor Slot takes a hit down a step. Armor Slots are Daggerheart's shield, so the **Shields** answer decides how freely a character marks one: against any hit (always), Major or worse (sparingly), or only Severe (never). No Armor Slot lessens direct damage.
+
+### Death moves
+
+When a character's last Hit Point is marked, it chooses a death move as its playstyles lean (a Martyr goes out in a Blaze of Glory, a Brawler Risks It All, a Chicken Avoids Death), else by its nerve: the bravest, and anyone who'd never retreat, Risk It All; the rest Avoid Death.
+
+- **Avoid Death:** out cold; if the Hope die comes up at or under its level, a scar.
+- **Risk It All:** the Duality Dice. Hope higher: it clears that many Hit Points and fights on. Fear higher: it dies. Matching: it clears every Hit Point and Stress.
+- **Blaze of Glory:** one last action, a critical success, then it dies.
+
+An adversary whose last Hit Point is marked is defeated; one who would kill it kills it.
+
+### Conditions and holds
+
+Daggerheart has three conditions: Vulnerable (hit with advantage), Hidden (hit with disadvantage) and Restrained. The helper writes them onto the sheet and reads them back each turn, so one the GM takes off a token is gone from the fight. FastFighting keeps the core's other conditions (frightened, stunned and the rest) itself. Daggerheart's Restrained means a creature can't move but can still act, so the core's "restrained" and "can't move" both become Restrained.
+
+Restrained is a hold that an action breaks. A character rolls the better of Strength and Agility against the Difficulty of the adversary who laid it, or its tier's typical Difficulty (12 in tier 1); a friend beside it can pull it loose with Strength or Finesse. Either is the spotlight's action and brings Hope or Fear. An adversary clears it when the GM spotlights it, spending that spotlight.
+
+### Maneuvers
+
+The core's maneuvers come from two places:
+
+- Trait moves. A character's Grapple is the core's grapple: Strength against the foe's Difficulty; held, and on a critical, Restrained too (breaking its grip takes 12 + its Strength). Maneuver is the core's feint: Agility against the foe's Difficulty, and the foe is Vulnerable until it next acts. Shove is the core's shove (see Homebrew).
+- SRD adversary features. Ground Slam flings, Grab and Drag drags, Earth Eruption trips, the Bear's Bite grapples. Some ride the standard attack: on a hit that marks Hit Points, the Bear's Overwhelming Force knocks the foe back to Very Close. A feature's data doesn't say where a foe lands, so the helper knows these by their SRD compendium entries, which imported or copied adversaries keep.
+
+A moved creature stops at walls and others in the way. Over a ledge it takes the SRD's fall damage: Very Close 1d10+3 physical, Close 1d20+5, Far or more 1d100+15. Daggerheart has no prone, so nobody lands that way. An adversary's knockback stopped short deals the SRD's collision damage, 1d20+5 direct physical; whoever it hits takes nothing.
+
+### Reactions and summoning
+
+An adversary's reaction feature that harms whoever hurt it (Thorny Armor, Burning, Acid Bath ...) is one of the core's reactions: it answers a blow that hurts it, once a round, for its Stress where it costs one.
+
+A feature that summons calls the creatures it names from the system's compendium, within its range and for its cost: as many as its count comes to on average (`@partySize` is the party's size), at most eight of one creature. An SRD summoning whose data leaves out the Fear its words cost (the Head Vampire's The Hunt Is On, the Dryad's Grow Saplings ...) costs that Fear here. Summoned creatures wait for the GM's spotlight.
+
+### Adversaries, companions, NPCs and environments
+
+- **Minion:** falls to any damage. With **Minion (X)**, each X damage fells another of its kind, summoned ones too.
+- **Horde:** hits for its lesser damage once it has marked half its Hit Points.
+- **Leaders:** adversaries rank by type (a Leader, then a Solo) and tier; characters by Presence.
+- **A companion** (a Beastbound ranger's) attacks with its partner's Spellcast and Proficiency, rolls its partner's Duality Dice (Hope to the partner, Fear to the GM) and acts at the end of the round. Any damage marks one of its Stress; at its last, it's out of the fight.
+- **An NPC** (a sheet with a Difficulty and no Hit Points) is a bystander: a blow puts it out of the fight, and talking it round or robbing it is against its Difficulty.
+- **An environment** (a raging river, a collapsing bridge) is the core's hazard: its action features act on GM turns, with reaction rolls against its Difficulty.
+
+### Talking, hands, ranges and gold
+
+- **Talking:** characters use Presence. An adversary talks with its best Experience (a Social one better), and resists words, and anything else tried on it, with its Difficulty. Beasts don't talk.
+- **Hands:** a weapon needs as many free hands as its burden. A natural attack (a beast's, a companion's, or one the system shows with claws, fangs or a tail) needs none; a fist needs one.
+- **Ranges** are in feet: Melee 5, Very Close 15, Close 30, Far 60, Very Far 120, or as the system's **Range Measurement** rule sets them.
+- **Gold** is the sheet's coins, handfuls, bags and chests; stowed gear is what a character carries and hasn't equipped. Both can be stolen, or offered in a standoff.
+
+### Personality and tactics
+
+The core's four hidden scores (tactical, brave, selfish, loyal) come from the sheet, and the GM sees each reason. A character starts as the usual hero and moves with its traits (against its class's suggested spread), level, domains, subclass, ancestry, community, features, scars and Stress slots: a wizard with its best trait in Strength is braver and less tactical, a Slyborne one more selfish. An adversary starts from its type and tier (a Solo brave and fearless, a Minion faint-hearted); motives such as feeding or hunting make it a beast that fights on instinct and won't talk.
+
+When FastFighting sets a character up by itself, its class's two domains suggest playstyles (Valor a Tank and a Martyr, Midnight a Thief), and an adversary's type does the same (a Skulk a Wallflower and a Thief). "Let this character decide" answers from the sheet where it can, and shows why: a Valor class protects its friends and marks Armor Slots against any hit; a Grace class talks when it could work; a Ranged adversary shoots, casters first. Where the sheet says nothing, the core reads the hidden scores.
+
+Playstyle perks with a Daggerheart twist:
 
 | Perk (playstyles) | In Daggerheart |
 | --- | --- |
-| Hard to spot (Chicken, Fragile, Wallflower) | Foes' attention slides off it, and it would rather **Hide** (Finesse against Difficulty 12): Hidden, rolls against it at disadvantage, until it attacks. |
-| Spoiling (Instigator most; Cruel, Wants to Lead, Wallflower, Puzzle-Maniac) | It would rather **Grapple** (Strength against the foe's Difficulty: held; on a critical, Restrained too) or **Maneuver** (Agility: Vulnerable until the foe next acts), or use a feature that lays a condition, than strike. |
-| Helping (Enabler, People-Pleaser, Moralist, Martyr, Redeem-Seeker, Tank) | **Help an Ally**: a Hope for a d6 on a friend's next action roll, without taking the spotlight; friends asking for help are answered. |
-| In a hurry (Impatient, Speed-Runner) | **Sprint** for a foe beyond Close range: an Agility roll against Difficulty 12 that takes the spotlight's action (made, up to Far); an adversary moves up to Very Far as its action. |
-| Acting first (Instigator) | No initiative here: it takes the spotlight first among the party, and the GM turns to it first among its side. |
-| Lore-Collector | Sizes a foe up with **Analyze** (Knowledge) or **Perceive** (Instinct), whichever is better, against the foe's Difficulty; on a success its next roll against that foe is likelier (the **Lore-Collector advantage** setting, 2.4× by default). |
-| Weak spots (Puzzle-Maniac) | A foe that resists, or is immune to, one kind of damage (physical, magical) and not the other: it goes for the other. |
-| Healers and casters as targets | Anyone with a spellcast attack counts as a caster; anyone with healing (a domain card, a potion) as a healer. |
-| Thief | Lifts gold or gear (Finesse against 12 + the victim's Instinct). A character's gold is its sheet's (coins, handfuls, bags, chests); its stowed gear, what it carries and hasn't equipped. |
-| Trap avoiders (Thief, Puzzle-Maniac, Skeptic, Lore-Collector, Chicken, Wallflower) | **Environments** (a raging river, a collapsing bridge) are hazards: their action features act on GM turns, reaction rolls against their Difficulty; a trap avoider may spot one and keep clear of it. |
-| Finishing the fallen (Cruel) | An adversary whose last Hit Point is marked is **defeated**: the table decides what that means, and Do it For Real Now marks it Defeated; one who would kill (Cruel, or a foe) kills it, and it's marked Dead. A character out cold from Avoid Death can be struck (homebrew, below). |
-| Sparing the fallen (Moralist, Peacekeeper, Diplomat; "avoid killing") | Leaves the defeated as they are. |
-| Mending, healing (Fragile, Moralist, Martyr, Enabler) | Healing domain cards, and potions (a character's consumables: drunk by whoever carries them, at its potion threshold). |
-| Locked doors (Puzzle-Maniac most) | **Smash** (Strength) or **Tinker** (Finesse) against Difficulty 12, or break it down. |
-| Death moves | See **How a fight plays**: Martyr and Redeem-Seeker go out in a Blaze of Glory; the bold Risk It All; the careful Avoid Death. |
+| Hard to spot (Chicken, Fragile, Wallflower) | Would rather Hide (Finesse against Difficulty 12): Hidden until it attacks. |
+| Spoiling (Instigator most) | Would rather Grapple, Maneuver or lay a condition than strike. |
+| Helping (Enabler, People-Pleaser, Moralist, Martyr, Redeem-Seeker, Tank) | Help an Ally: a Hope for a d6 on a friend's next action roll, without taking the spotlight. |
+| In a hurry (Impatient, Speed-Runner) | Sprints for a foe beyond Close: Agility against Difficulty 12, as its action (made, up to Far). An adversary moves up to Very Far. |
+| Acting first (Instigator) | Takes the spotlight first on its side. |
+| Lore-Collector | Analyze (Knowledge) or Perceive (Instinct) against the foe's Difficulty; on a success, its next roll against that foe is likelier (the **Lore-Collector advantage** setting). |
+| Weak spots (Puzzle-Maniac) | Uses the damage kind (physical, magical) a foe doesn't resist. |
+| Healers and casters as targets | A spellcast attack makes a caster; healing (a domain card, a potion) a healer. |
+| Thief | Lifts gold or gear: Finesse against 12 + the victim's Instinct. |
+| Locked doors (Puzzle-Maniac most) | Smash (Strength) or Tinker (Finesse) against Difficulty 12, or break the door down. |
 
-Tactics answers:
+The **Magic and specialties** answer covers domain cards, class, subclass, ancestry and community features, and anything that casts; weapons, trait moves, Help an Ally and potions are what anyone can do.
 
-- **Shields** (raise a shield always, sparingly, never): how freely it marks **Armor Slots**: against any hit; against Major or worse; only against Severe. Let this character decide: against any hit for a Valor class or one built on its Armor Slots, else Major or worse (see **Set up by itself**).
-- **Resources** (conserve, balanced, nova): how readily it spends a Hope on an Experience (only for a big difference; for a fair one, keeping three for its Hope feature; for any), as well as on its Hope, Stress and Armor Slot features.
-- **Potions:** a potion drunk once its Hit Points fall below the threshold.
-- **A friend falling** (rescue): it tends a friend out cold (in the fight, and after it), or heals it.
-- **Retreat** ("never"): also means Risk It All when its last Hit Point is marked.
-- **Magic and specialties** (an Un-Mundane character leans on them): its domain cards and its class, subclass, ancestry and community features (an adversary's, its features), and anything that casts. Its weapons, the trait moves, Help an Ally and potions are what anyone could do.
+## Live battles
 
-**Homebrew** (the SRD doesn't say; this module's reading, kept to the system's own mechanics where it could):
-- Striking a character out cold from Avoid Death: it rolls the Duality Dice; Fear higher, it dies; otherwise it hangs on, still out cold.
-- Tending a friend out cold: an Instinct or Knowledge action roll against Difficulty 12 keeps it safe from a finishing blow; a critical clears a Hit Point and gets it up.
-- Which trait each move uses, what Grapple and Maneuver lay on a foe, and Difficulty 12 for Hide, Sprint, doors and tending.
-- **Shove** (Strength against the foe's Difficulty): out of Melee to Very Close (10 feet); on a critical, as far as Close (25 feet). The SRD has no shove, only actions a character can attempt.
-- How far a knockback goes, in feet: an adversary's feature that knocks foes back to a range sends them as far as that range is past where the feature reaches (from Melee, when it reaches that far already: the Banshee's wail, within Close, sends each to the edge of Close); one that pulls them in, from as far as it reaches. One that comes with a standard attack knocks a foe back until it's at that range's far edge (already there, nowhere).
-- A collision at a dangerous speed (the SRD's guide): a knockback by an adversary's feature, stopped short; a character's Shove, or a pull, isn't that fast.
-- Breaking free: the traits above; a character's grip is 12 + its Strength to break. FastFighting's improvised bonds (Daggerheart has none) take Strength or Finesse for a character, or a d20 and its attack modifier for an adversary, against two over its tier's typical Difficulty (14 in tier 1); a friend unties them with no roll. The SRD doesn't say which spells need free hands, so the world setting **Tied up stops spells** (on by default) decides whether a creature that's tied up can cast. A weapon always needs as many hands as its burden; a natural attack (an adversary's claws or fangs, a beast's, a companion's) none.
-- Hope and a Stress cleared, weighed against a blow: a Hope about a third of a Hit Point, a Stress cleared a quarter (half again as much with none left), only as far as there's room for them.
-- A summoning's count, and Hope or Stress that comes in dice: their average (1d4 Vampires are three), at most eight of one creature. With no party in the world, `@partySize` counts the player characters.
-- An adversary's gold: the SRD doesn't count it, so a humanoid adversary is reckoned to carry a handful a tier (a Leader's or a Solo's twice that), a beast or a Minion none: something to steal, or to pay with in a standoff.
+Do it For Real Now writes each turn onto the sheets as it's played:
 
-## Set up by itself
+- **A character:** Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), consumables used, a scar, and how it ended (unconscious from Avoid Death, dead).
+- **An adversary:** Hit Points and Stress marked; beaten, the status the world's Defeated setting gives adversaries (else Defeated), or Dead when one who would kill beat it; its combatant defeated; hidden when it fled.
+- **A companion:** the Stress it marked; out of the fight as the world's Defeated setting says for companions.
+- **An NPC:** how it ended.
+- **Anyone:** Vulnerable, Hidden and Restrained, put on or taken off by the fight or by the GM in the Battle Vantage; gold or an item given up (a deal, a demand, a theft), to whoever took it.
+- **The GM's Fear,** written to the world.
 
-When FastFighting sets a character up by itself (the first time it sees it: see the core's README), Daggerheart has its say, from data, never names:
-- **A character's playstyles, by its class's two domains** (a homebrew class counts as its domains say): Blade a Brawler; Bone a Speed-Runner; Valor a Tank and a Martyr; Midnight a Thief and a Wallflower; Grace a Diplomat and a People-Pleaser; Codex a Lore-Collector; Splendor an Enabler and a Moralist; Sage a Lore-Collector and an Enabler; Arcana Un-Mundane.
-- **An adversary's, by its type:** a Bruiser a Brawler and a Tank; a Horde a Brawler, relentless; a Leader leads; a Minion follows; a Ranged one a Wallflower; a Skulk a Wallflower, a Thief, a little cruel; a Social one a Diplomat; a Solo Relentless; a Support an Enabler.
-- **A beast** (its motives: hunt, feed and the like) fights on instinct: no talker's pill, and no words.
-- **Keywords:** what's said of it counts in full: a character's faith and Experiences, an adversary's description, motives and tactics, and Experiences. Its story counts a little: a character's background (what was written, not the class's questions), an adversary's notes. A character's connections are about the others, so they're left out.
+A player's spotlight is read from the system's roll cards: an attack and its damage, healing, and a Presence roll as words for the GM to confirm. A roll with Fear, or one that failed, hands the spotlight to the GM. **Rewind** takes one turn back; **Rewind This Encounter**, all of it.
 
-### Let this character decide
+## Settings
 
-What "Let this character decide" stands for is Daggerheart's answer wherever its data says something, and the GM sees why (a domain, a card's or feature's name, a weapon, an adversary's type or attack). Where it says nothing, the core reads the character's hidden scores.
+- **Lore-Collector advantage** (1.25× to 3×, default 2.4×): how much likelier a Lore-Collector's next roll against a foe succeeds after it sizes that foe up successfully. The default repays the action spent.
+- **Tied up stops spells** (on by default): whether a tied-up creature can cast. The SRD doesn't say which spells need free hands.
 
-A character, by its build (its player can always choose otherwise):
-- **Favorite attack:** its primary weapon.
-- **Style:** its class's domains: Valor a protector; Dread, Arcana or Codex a caster; Midnight a skirmisher; Blade the front line; Sage at range; Bone a skirmisher; Splendor a caster. So an Assassin skirmishes and a Witch casts. A front-line or skirmishing class whose primary weapon reaches Far shoots instead, and a Ranger with a Melee or Very Close weapon closes in.
-- **Target:** a protector goes for whoever threatens its friends.
-- **Retreat:** a protector (Valor) doesn't leave its friends while the fight can be won.
-- **Shields (Armor Slots):** a Valor class, or one with a feature or card built on marking them (Iron Will, Brace, Armorer: more marked at once, or slots of its own), marks one against any hit; anyone else with Armor Slots, against Major or worse.
-- **Healing others:** with a feature or card that clears others' Hit Points (Mending Touch, Life Support), eagerly for a Splendor class or a Warden of Renewal, else as the fight allows. It goes to a friend who falls, as a Valor class does. A Valor class gets back up and back in.
-- **Talking:** a Grace class talks when it could work.
-- **Magic and specialties:** a caster with a spell or grimoire it attacks with leans on it hard; anyone with a feature or card it attacks with, some.
-- **Potions:** drunk once it has marked as many Hit Points as its best potion clears, so none of it is wasted (with a quarter of them left at the latest).
-- **Consumables:** a Hedge witch (Herbal Remedies makes each one clear more) uses them freely.
-- **Offer and expect:** a Highborne character buys its way out with a handful of gold (if it has one); a Slyborne one wants paying, a handful a tier.
+It also follows the system's settings: Range Measurement, Massive Damage, the Defeated automation, the GM's Fear and the world's currency.
 
-Where two things on its sheet answer the same question, the surer one stands (an adversary's attack over its type).
+## Homebrew
 
-An adversary:
-- **Its type:** a Bruiser, a Horde or a Minion holds the front line against whoever is nearest; a Leader goes for the most dangerous and runs for help; a Ranged one shoots, casters first; a Skulk flanks the weakest and slips away when hurt; a Social one talks first and gets out when hurt; a Solo holds the front against the most dangerous and never gives up; a Support casts, against whoever threatens its friends.
-- **Its standard attack:** one that reaches Far shoots; a Leader's, a Social or a Standard one's that reaches Melee or Very Close holds the front line.
-- **Its features:** one that clears others' Hit Points heals (a Support eagerly); one that summons calls the others in (runs for help); with features it attacks with, a Solo or a Leader leans on them hard, anyone else some.
-- **Offer:** a Social one with gold buys its way out with a handful.
+Where the SRD doesn't say, this helper rules as follows, kept to the system's own mechanics where it could:
 
-Left to the core: how freely Hope and Stress are spent, what's nearby, and every other question the above doesn't answer. Motives and tactics and Experiences are words: they go to the keywords, not these answers.
-
-## The planner's Daggerheart row
-
-- **Fear:** what the GM has going in. It starts as the world's Fear; Do it For Real Now writes back what the fight leaves.
-- **Spending Fear:** on a GM turn, one adversary takes the spotlight, and a Fear brings one more:
-  - **Sparing:** one more, only while the GM holds more than 4 Fear;
-  - **Steady** (the default): one more, while it holds more than 1;
-  - **Free:** as many more as there is Fear for.
-
-## Do it For Real Now
-
-In a live battle, each turn's changes go onto the sheets as the turn is played:
-- A character: Hit Points and Stress marked, Hope, Armor Slots marked (on its armor), a scar, and how it ended (unconscious from Avoid Death, dead).
-- An adversary: Hit Points and Stress marked; Defeated (or Dead, when one who would kill beat it), its combatant defeated; hidden when it fled.
-- A companion: the Stress it marked; out of the fight as the world's Defeated setting says for companions.
-- An NPC: how it ended (it has nothing to mark).
-- Consumables used come off what a character carries; gold or an item given up (a deal, a demand, a theft) goes to whoever it went to.
-- The GM's Fear, written to the world.
-- Conditions put on a creature or taken off it, by the fight or by the GM in the Battle Vantage: Vulnerable, Hidden and Restrained (FastFighting's "can't move" is Restrained too). Each turn the token's conditions are read back, so one the GM takes off the token is gone from the fight as well. What Daggerheart has no condition for (frightened, turned, stunned and the rest) FastFighting keeps.
-- Breaking free of Restrained (laid in the fight, or already on the token): a character makes an action roll with the better of Strength and Agility (a friend beside it, pulling it loose, with Strength or Finesse) against the Difficulty of the adversary who laid it, or what's typical for its tier when that isn't known (12 in tier 1). It's the spotlight's action, and it brings Hope or Fear and swings the spotlight like any action roll. An adversary simply clears it when the GM spotlights it, spending that spotlight. Once broken, it comes off the token.
-
-Rewind Turn takes one turn back; Rewind This Encounter, all of it.
+- **Striking a character out cold** from Avoid Death: it rolls the Duality Dice; Fear higher, it dies; otherwise it hangs on, still out cold.
+- **Tending a friend out cold:** the better of Instinct and Knowledge against Difficulty 12 keeps it safe from a finishing blow; a critical clears a Hit Point and gets it up.
+- **The moves:** which trait each move and each try to break free uses, what Grapple and Maneuver lay, and Difficulty 12 for Hide, Sprint, doors and tending.
+- **Shove** (Strength against the foe's Difficulty): out of Melee to Very Close (10 feet); on a critical, to Close (25 feet).
+- **Knockback distance:** a feature that knocks foes back to a range pushes them by as much as that range lies past the feature's reach, or from Melee when it already reaches that far (the Banshee's wail, within Close, sends each to the edge of Close); one with a standard attack, to that range's far edge. A pull comes from as far as the feature reaches. Only an adversary feature's knockback is fast enough for a collision.
+- **Bonds:** Daggerheart has none, so FastFighting's improvised bonds take Strength or Finesse (an adversary: a d20 and its attack modifier) against two over its tier's typical Difficulty (14 in tier 1). A friend unties them with no roll.
+- **Weighing Hope and Stress:** a Hope counts as about a third of a Hit Point, a Stress cleared as a quarter (half again as much with no Stress left to mark), where there's room for them.
+- **Dice in a count** are averaged (1d4 Vampires are three). With no party in the world, `@partySize` counts the player characters.
+- **An adversary's gold:** a humanoid carries a handful a tier (a Leader or a Solo twice that); a beast or a Minion none.
 
 ## Not yet played
 
-Tag Team rolls, adversary passives (but a knockback with its standard attack), adversary reactions that strike back with a standard attack, cost the GM a Fear, add to its own hit or count down, a Minion's Group Attack, an adversary's Experiences (a Fear each), countdowns (and what they summon when they run out), a summoning that answers something (a Red Ooze's Split, the Phoenix's Fireseed), an environment's summonings (the core's hazards don't summon yet), and beastforms. Summoned creatures don't take the spotlight at once, as many SRD summonings say: they wait for the GM like any adversary. Hope a foe loses (Terrifying, Dreadhowl); a heal that clears Stress as well clears only its Hit Points. A knockback that answers a blow (the Oracle of Doom's Vengeful Fate: its damage is played, not the knockback), the Elephant's Toss (a Fear), and a fall the GM says kills outright.
-
-## Development
-
-The tests import FastFighting Core from a checkout beside this one (`../FastFighting`; override with `FASTFIGHTING_CORE`):
-
-```
-npm install
-npm test
-```
-
-Junction or symlink this folder into Foundry as `Data/modules/fast-fighting-daggerheart`.
-
-Every word this module shows is in `languages/en.json` (or the Daggerheart system's own, where it has one: Hope, Stress, Fear, the death moves, traits and adversary types): the code holds keys, never the English. Translating it takes only a copy of that file (see **Translating** in the core README). `npm run test:reworded` runs the tests again with every word in the language files reworded, so they never depend on the wording.
-
-`hardcoded-toEN.json` lists words that stay in English for now, whatever the reader's language: keys of `languages/en.json` (or a group) whose translation would contradict a game system that isn't translated yet. It has the date it was last updated (`lastUpdated`) and the list (`keys`).
+Tag Team rolls; beastforms; countdowns and what they summon; an adversary spending Fear on its Experiences; a Minion's Group Attack; adversary passives other than a knockback with the standard attack; adversary reactions that strike back with a standard attack, cost the GM a Fear, add to its own hit or count down; a summoning that answers something (a Red Ooze's Split, the Phoenix's Fireseed); an environment's summonings; summoned creatures acting at once; Hope a foe loses (Terrifying, Dreadhowl); the Stress a heal clears besides Hit Points; a free Hope or Stress gain usable any number of times (Swift Step); a knockback that answers a blow (the Oracle of Doom's Vengeful Fate: only its damage is played); the Elephant's Toss; and a fall the GM says kills outright.
 
 ## License
 
 MIT for this module's code. Daggerheart is by Darrington Press; this module plays its rules as the free Daggerheart SRD sets them out, holds none of its text, and isn't affiliated with or endorsed by Darrington Press or Critical Role.
+
+---
+
+Developers: see [CODING_README.md](CODING_README.md), and [FastFighting Core](https://github.com/galaara98/FastFighting) with its [developer docs](https://github.com/galaara98/FastFighting/blob/main/CODING_README.md).

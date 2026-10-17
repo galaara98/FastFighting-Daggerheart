@@ -2,7 +2,8 @@
   "FFDAGGERHEART": {
     "Label": "Daggerheart",
     "NeedsCore": "FastFighting Daggerheart needs the FastFighting module (the core) to be active.",
-    "CoreTooOld": "FastFighting Daggerheart needs a newer version of FastFighting. Update FastFighting.",
+    "CoreTooOld": "FastFighting Daggerheart needs a newer FastFighting Core. Update FastFighting.",
+    "CoreUntested": "FastFighting Daggerheart hasn't been tried with FastFighting Core API {major}; some things may not work.",
     "Note": {
       "Hope": "Hope {hope} · Fear {fear}: with Hope",
       "Fear": "Hope {hope} · Fear {fear}: with Fear",
@@ -24,7 +25,7 @@
       "BlazeNote": "Blaze of Glory: one last action, then death",
       "RiskDies": "Risk It All: Hope {hope}, Fear {fear}, and death",
       "RiskLives": "Risk It All: Hope {hope}, Fear {fear}, back up with {n} Hit Points",
-      "RiskAll": "Risk It All: Hope {hope}, Fear {fear}, matching: every Hit Point and Stress cleared",
+      "RiskAll": "Risk It All: Hope {hope}, Fear {fear}, matching: fully healed, Stress cleared",
       "Avoid": "Avoid Death: out cold (Hope die {n})",
       "AvoidScar": "Avoid Death: out cold, and a scar (Hope die {n})",
       "Finished": "struck while out cold: Hope {hope}, Fear {fear}, and death",
@@ -124,11 +125,11 @@
     "Settings": {
       "loreBoost": {
         "Name": "Lore-Collector advantage",
-        "Hint": "How much likelier a Lore-Collector's next roll against a foe is to succeed after it sizes that foe up (Analyze with Knowledge, or Perceive with Instinct, against the foe's Difficulty; on a success, never without it). 1.25× is a nudge, 3× a sure thing more often than not. Default 2.4×: what it takes for that one roll to make up for the action it cost."
+        "Hint": "How much likelier a Lore-Collector's next roll against a foe is to succeed after a successful Analyze or Perceive on it. The default, 2.4×, repays the action spent."
       },
       "tiedStopsSpells": {
         "Name": "Tied up stops spells",
-        "Hint": "Daggerheart doesn't say which spells need free hands. On: a creature that's tied up casts nothing until it's free. Off: it can still cast. Either way it can't use a weapon, and it can still talk."
+        "Hint": "Daggerheart doesn't say which spells need free hands. On: a tied-up creature can't cast until it's free. Off: it can."
       }
     },
     "BreakFree": {
