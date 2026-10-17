@@ -11,9 +11,9 @@
  *     Roll Damage button rolls it, where the system's Automation hasn't rolled it already. The card says how it went:
  *     the attack at the target (a critical on matching dice, or the d20 at its threshold), and the damage it holds.
  *   - FastFighting deals the blow, pays the attack's costs, lays its effects and counts its Hope and Fear (its rules,
- *     written back with the turn): the system's workflow is kept from doing them for this roll (its Automation's
- *     damage and effects applied, its costs paid, the Hope, Fear and Stress the Duality Dice bring). Its countdowns and
- *     its features' triggers go as the system has them.
+ *     from the card's Duality Dice: rules.js asRolled; written back with the turn): the system's workflow is kept
+ *     from doing them for this roll (its Automation's damage and effects applied, its costs paid, the Hope, Fear and
+ *     Stress the Duality Dice bring). Its countdowns and its features' triggers go as the system has them.
  */
 import { readDaggerheartStrike } from "./read-turn.js";
 
@@ -81,7 +81,7 @@ async function landed(id, tokenId) {
 }
 
 /**
- * A strike rolled with the daggerheart system's own roller, its card in the chat: {attack: {degree, natural, total},
+ * A strike rolled with the daggerheart system's own roller, its card in the chat: {attack: {degree, natural, total, dice},
  * damage: {byType} | null} (damage null on a miss, or where none landed on the card in time: the engine's dice for it),
  * or null where it can't be rolled here or read (the engine rolls it).
  * @param {TokenDocument} token    the one who strikes
@@ -128,7 +128,8 @@ export async function rollDaggerheartStrike(token, { action, target, secret = fa
   const card = typeof used?.message?.id === "string" ? game.messages?.get?.(used.message.id) : null;
   const read = readDaggerheartStrike(card, target.id);
   if ( !read ) return null;
-  const out = { attack: { degree: read.degree, natural: read.natural, total: read.total }, damage: null };
+  // (Its Duality Dice too: Hope or Fear, as the card has them, are the engine's: rules.js asRolled.)
+  const out = { attack: { degree: read.degree, natural: read.natural, total: read.total, ...(read.dice ? { dice: read.dice } : {}) }, damage: null };
   if ( read.degree < 2 ) return out;
   // (Its damage: rolled already, by the system's Automation; else as the card's own Roll Damage button rolls it.)
   if ( !read.damage && !used.damage && typeof card.onRollDamage === "function" ) await card.onRollDamage(click());

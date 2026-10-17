@@ -41,7 +41,7 @@
  * Pure: no Foundry globals (words through t(); the setting through tied-up.js).
  */
 import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize, listJoin, part } from "./core.js";
-import { DUALITY, dualityChances, d20Chances, rollDuality, rollD20 } from "./dice.js";
+import { DUALITY, dualityChances, dualityWith, d20Chances, rollDuality, rollD20 } from "./dice.js";
 import { CONDITION_KEYS, RANGES } from "./actions.js";
 import { tiedStopsSpells } from "./tied-up.js";
 import { t, systemWord } from "./words.js";
@@ -395,6 +395,22 @@ export const daggerheartRules = {
     const roll = rollDuality(rng, mod + (experience?.value ?? 0), dc, { advantage: options.advantage, reaction, crit: !!u?.lastStand });
     if ( experience ) roll.experience = experience;
     // (A companion's Hope is its partner's; its Fear, the GM's.)
+    if ( u && !reaction ) settle(u.partner ?? u, roll);
+    roll.note = noteOf(roll, reaction);
+    return roll;
+  },
+  /**
+   * A roll the system made itself (a live battle's, its card in the chat): its Duality Dice as they fell, Hope or Fear
+   * (and a critical's Stress) settled from them as roll() settles its own. A d20, or dice unread: as it stands.
+   */
+  asRolled(r, mod, dc, options = {}) {
+    const hope = r?.dice?.hope;
+    const fear = r?.dice?.fear;
+    if ( options.faces !== DUALITY || !Number.isFinite(hope) || !Number.isFinite(fear) ) return null;
+    const u = options.roller ?? null;
+    const reaction = options.kind === "save";
+    const matched = hope === fear || r.degree >= 3;
+    const roll = { natural: hope + fear, total: Number.isFinite(r.total) ? r.total : hope + fear + mod, degree: r.degree, hope, fear, with: matched ? "crit" : dualityWith(hope, fear) };
     if ( u && !reaction ) settle(u.partner ?? u, roll);
     roll.note = noteOf(roll, reaction);
     return roll;

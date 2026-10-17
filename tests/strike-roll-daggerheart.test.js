@@ -184,20 +184,20 @@ describe("a strike, rolled the daggerheart system's way", () => {
   test("magical damage, and the Stress it marks besides", async () => {
     scene();
     const { token } = fighter("character", { hope: 10, fear: 3, damage: 6, types: ["magical"], stress: 1 });
-    expect(await react(token, strike("tokA.w1"))).toEqual({ attack: { degree: 2, natural: 13, total: 16 }, damage: { byType: { magical: 6, stress: 1 } } });
+    expect(await react(token, strike("tokA.w1"))).toEqual({ attack: { degree: 2, natural: 13, total: 16, dice: { hope: 10, fear: 3 } }, damage: { byType: { magical: 6, stress: 1 } } });
   });
 
   test("a miss is degree 1, with no damage rolled", async () => {
     scene();
     const { token, log } = fighter("character", { hope: 2, fear: 5, mod: 1 });
-    expect(await react(token, strike("tokA.w1"))).toEqual({ attack: { degree: 1, natural: 7, total: 8 }, damage: null });
+    expect(await react(token, strike("tokA.w1"))).toEqual({ attack: { degree: 1, natural: 7, total: 8, dice: { hope: 2, fear: 5 } }, damage: null });
     expect(log.damageRolls).toBe(0);
   });
 
   test("a critical (matching Duality Dice, an adversary's d20 at its threshold) is degree 3, hitting whatever it needed; its damage as the system rolls it", async () => {
     scene();
     const pc = fighter("character", { hope: 3, fear: 3, mod: 0, damage: 19, evasion: 30 });
-    expect(await react(pc.token, strike("tokA.w1"))).toEqual({ attack: { degree: 3, natural: 6, total: 6 }, damage: { byType: { physical: 19 } } });
+    expect(await react(pc.token, strike("tokA.w1"))).toEqual({ attack: { degree: 3, natural: 6, total: 6, dice: { hope: 3, fear: 3 } }, damage: { byType: { physical: 19 } } });
     const foe = fighter("adversary", { natural: 19, critOn: 19, mod: 2, damage: 14 });
     expect(await react(foe.token)).toEqual({ attack: { degree: 3, natural: 19, total: 21 }, damage: { byType: { physical: 14 } } });
   });

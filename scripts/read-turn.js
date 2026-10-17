@@ -198,8 +198,8 @@ function damageByType(m) {
  * A strike's card, as the system made it for a strike FastFighting asked of it (strike-roll.js): the attack at the token
  * it struck and, a hit, the damage the card holds. {degree: 3 a critical (matching dice, or the d20 at its threshold),
  * 2 a hit (the target's Difficulty or Evasion met), 1 a miss (neither roll fails critically), natural (the Duality Dice
- * together, or the d20), total, damage: {type: amount} | null}; null where the card holds no action roll at that token,
- * or what the roll had to meet there isn't known.
+ * together, or the d20), total, dice ({hope, fear}: the Duality Dice; null, a d20), damage: {type: amount} | null};
+ * null where the card holds no action roll at that token, or what the roll had to meet there isn't known.
  * @param {ChatMessage} m
  * @param {string} tokenId
  */
@@ -212,5 +212,5 @@ export function readDaggerheartStrike(m, tokenId) {
   const dc = dcAt(target, r.difficulty);
   if ( !r.crit && !Number.isFinite(dc) ) return null;
   const degree = r.crit ? 3 : meets(r, dc) ? 2 : 1;
-  return { degree, natural: naturalOf(r), total: r.total, damage: degree >= 2 ? damageByType(m) : null };
+  return { degree, natural: naturalOf(r), total: r.total, dice: r.dice, damage: degree >= 2 ? damageByType(m) : null };
 }
