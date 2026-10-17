@@ -49,6 +49,8 @@ describe("how many, how far off, what it costs", () => {
   test("its count's formula on average, @partySize the party's; at most eight of a kind", () => {
     expect(["3", "1d4", "2d4", "1d6", "1d4+2", "", "0"].map(f => summonCount(f))).toEqual([3, 3, 5, 4, 5, 1, 0]);
     expect(summonCount("@partySize*2", { partySize: 3 })).toBe(6);
+    // (floor, ceil, min and max as they say.)
+    expect(["floor(5/2)", "ceil(7/3)", "min(3, 2)", "max(1, 4)"].map(f => summonCount(f))).toEqual([2, 3, 2, 4]);
     expect(summonCount("@partySize * 2", { partySize: 5 })).toBe(8);
     expect(summonCount("@partySize")).toBe(0);
     // (Any other figure of the sheet's counts nothing.)

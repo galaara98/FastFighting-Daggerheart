@@ -20,7 +20,7 @@
  * Other kinds of action (countdowns, macros, beastforms) aren't played.
  * Pure: no Foundry globals.
  */
-import { part, parseFormula, parseTypedFormula, meanPart } from "./core.js";
+import { part, parseFormula, meanPart, formulaNumber } from "./core.js";
 
 /** The system's ranges, in feet, unless its Range Measurement rule says otherwise. */
 export const RANGES = Object.freeze({ melee: 5, veryClose: 15, close: 30, far: 60, veryFar: 120 });
@@ -387,7 +387,8 @@ const SUMMON_MOST = 8;
 export function summonCount(formula, { partySize = 0 } = {}) {
   const text = String(formula ?? "").trim() || "1";
   const filled = text.replace(/@partySize\b/gi, String(Math.max(0, Number(partySize) || 0))).replace(/@[\w.]+/g, "0");
-  const n = Math.round(parseTypedFormula(filled).reduce((s, p) => s + meanPart(p), 0));
+  // (Arithmetic only, never run as code: floor, ceil, min, max and the rest read as they say; dice averaged, rounded.)
+  const n = formulaNumber(filled, 0, { round: Math.round });
   return Math.max(0, Math.min(SUMMON_MOST, n));
 }
 
