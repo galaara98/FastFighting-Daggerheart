@@ -8,7 +8,8 @@
  *   - Healing: told as healing (the sheets say how much).
  * And the spotlight's hand-off: a roll with Fear, or one that failed, gives it to the GM (each event's `handoff`; a roll
  * that told nothing else, {type: "handoff"}).
- * Each event says whether it's `sure`.
+ * Each event says whether it's `sure`. A damage or healing card is also read on its own as it's made
+ * (readDaggerheartDamage), for the core to apply or put before a GM.
  */
 import { tokenIdIn as tokenIdOf } from "./core.js";
 
@@ -30,22 +31,51 @@ function itemName(source) {
   }
 }
 
-/** A roll's damage, as its card holds it (rolled with it, or rolled later on the same card). */
-function damageOf(m) {
-  const main = m.system?.damage?.main;
-  let total = main?.total;
-  if ( typeof main === "string" ) {
+/** A roll's total, as a card holds it (a Roll, or its JSON), at least 0; null for none. */
+function totalOf(roll) {
+  let total = roll?.total;
+  if ( typeof roll === "string" ) {
     try {
-      total = JSON.parse(main)?.total;
+      total = JSON.parse(roll)?.total;
     } catch ( err ) {
       return null;
     }
   }
-  return Number.isFinite(Number(total)) ? Math.max(0, Number(total)) : null;
+  return roll != null && Number.isFinite(Number(total)) ? Math.max(0, Number(total)) : null;
+}
+
+/** A roll's damage, as its card holds it (rolled with it, or rolled later on the same card). */
+const damageOf = m => totalOf(m.system?.damage?.main);
+
+/** A heal, as its card holds it: the Hit Points it clears, else all it restores (Stress, Hope, Armor Slots). */
+function healingOf(m) {
+  const resources = m.system?.damage?.resources;
+  if ( !resources || typeof resources !== "object" ) return null;
+  const totals = Object.entries(resources).map(([key, roll]) => [key, totalOf(roll)]).filter(([, n]) => n !== null);
+  const hp = totals.find(([key]) => key === "hitPoints");
+  if ( hp ) return hp[1];
+  return totals.length ? totals.reduce((sum, [, n]) => sum + n, 0) : null;
 }
 
 /** A card's list, where it is one (a card's data is its author's to write). */
 const listOf = v => (Array.isArray(v) ? v : []);
+
+/** A card's action roll: the roll, its Duality Dice, a critical (matching dice), its total, the action's Difficulty. */
+function actionRoll(m) {
+  const roll = m.system?.roll ?? m.rolls?.[0] ?? null;
+  const dice = dualityOf(roll);
+  const crit = !!roll?.isCritical || (dice ? dice.hope === dice.fear : false);
+  return { roll, dice, crit, total: Number(roll?.total), difficulty: roll?.options?.roll?.difficulty ?? null };
+}
+
+/** What a roll had to meet at a target: the action's own Difficulty, else the target's Difficulty or Evasion. */
+const dcAt = (t, difficulty) => difficulty ?? t?.difficulty ?? t?.evasion ?? null;
+
+/** Whether a roll met that (a critical always hits). */
+const meets = (r, dc) => r.crit || (Number.isFinite(dc) && r.total >= dc);
+
+/** The cards the system makes for an action: its rolls (a character's, an adversary's) and damage on a card of its own. */
+const ROLL_CARDS = Object.freeze(["dualityRoll", "adversaryRoll", "damageRoll"]);
 
 /**
  * @param {ChatMessage[]} messages  the cards made during the turn, oldest first
@@ -60,9 +90,10 @@ export function readDaggerheartTurn(messages, { tokenId, actorId = null, ids = {
     || (!m.speaker?.token && actorId && m.speaker?.actor === actorId);
   for ( const m of messages ) {
     try {
-      if ( !mine(m) || !["dualityRoll", "adversaryRoll", "damageRoll"].includes(m.type) ) continue;
+      if ( !mine(m) || !ROLL_CARDS.includes(m.type) ) continue;
       const sys = m.system ?? {};
-      const roll = sys.roll ?? m.rolls?.[0] ?? null;
+      const r = actionRoll(m);
+      const { roll, dice, crit, difficulty } = r;
       // (By the item it came from, "Longsword", rather than the card's title, "Longsword - Attack".)
       const action = itemName(sys.source) ?? sys.title ?? "";
       if ( m.type === "damageRoll" || !sys.hasRoll ) {
@@ -76,13 +107,10 @@ export function readDaggerheartTurn(messages, { tokenId, actorId = null, ids = {
         if ( strike && amount > 0 ) strike.damage = amount;
         continue;
       }
-      const dice = dualityOf(roll);
-      const crit = !!roll?.isCritical || (dice ? dice.hope === dice.fear : false);
       const withFear = dice ? dice.fear > dice.hope && !crit : false;
-      const difficulty = roll?.options?.roll?.difficulty ?? null;
-      const targets = listOf(sys.targets).map(t => ({ id: idOf(t?.id), dc: difficulty ?? t?.difficulty ?? t?.evasion ?? null })).filter(t => t.id);
-      const total = Number(roll?.total);
-      const hits = t => crit || (Number.isFinite(t.dc) && total >= t.dc);
+      const targets = listOf(sys.targets).map(t => ({ id: idOf(t?.id), dc: dcAt(t, difficulty) })).filter(t => t.id);
+      const total = r.total;
+      const hits = t => meets(r, t.dc);
       const failed = targets.length ? !targets.some(hits) : (Number.isFinite(difficulty) ? !crit && total < difficulty : false);
       // (The spotlight goes to the GM after a roll with Fear, or one that failed.)
       const handoff = !!dice && (withFear || failed);
@@ -110,4 +138,27 @@ export function readDaggerheartTurn(messages, { tokenId, actorId = null, ids = {
     }
   }
   return events;
+}
+
+/**
+ * A damage or healing card, as the core's live battles take one when it's made (adapter.damageCard): {amount, kind:
+ * "damage" | "healing", targets (token ids), save}, or null for any other card. Damage is its Hit Point damage (the
+ * card's main roll); a heal, the Hit Points it clears, else all it restores. Its targets are those the card names: of
+ * an attack, only those it hit (as readDaggerheartTurn reads it), and null when it hit none; a card with no roll, or a
+ * heal, all of them. `save`: the action has its targets make a reaction roll first (how much lands is the GM's call).
+ * @param {ChatMessage} m
+ */
+export function readDaggerheartDamage(m) {
+  if ( !m || !ROLL_CARDS.includes(m.type) ) return null;
+  const sys = m.system ?? {};
+  const healing = !!sys.hasHealing;
+  const amount = healing ? healingOf(m) : damageOf(m);
+  if ( amount === null ) return null;
+  let targets = listOf(sys.targets).filter(t => typeof t?.id === "string" && t.id);
+  if ( !healing && sys.hasRoll && m.type !== "damageRoll" && targets.length ) {
+    const r = actionRoll(m);
+    targets = targets.filter(t => meets(r, dcAt(t, r.difficulty)));
+    if ( !targets.length ) return null;
+  }
+  return { amount, kind: healing ? "healing" : "damage", targets: targets.map(t => t.id), save: !!sys.hasSave };
 }

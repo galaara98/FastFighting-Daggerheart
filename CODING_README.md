@@ -5,7 +5,7 @@ How this helper plugs into FastFighting Core, what each file does, the tables it
 ## Requirements
 
 - Foundry v14; the `daggerheart` system 2.10.0 or later (`relationships.systems` in `module.json`); FastFighting Core (`fast-fighting`) 0.3.0 or later (`relationships.requires`).
-- FastFighting Core's API version is `major.bug` (`api.version` "18.0", `api.major` 18, `api.bug` 0). The helper decides compatibility; the core never refuses it. `KNOWN_API` in `scripts/main.js` lists the API majors this helper is known to work with, currently [18]. When a new core major arrives, test the helper with it and add the major to `KNOWN_API`.
+- FastFighting Core's API version is `major.bug` (`api.version` "18.0", `api.major` 18, `api.bug` 0). The helper decides compatibility; the core never refuses it. `KNOWN_API` in `scripts/main.js` lists the API majors this helper is known to work with, currently [18, 19]. When a new core major arrives, test the helper with it and add the major to `KNOWN_API`.
 - The helper relies on what API 18 brings: rolls by who rolls, the system's own round, shared pools, traits from parts, tactics answers with their reasons and what a character offers and expects, the shared sheet tools (statuses, undo records, an item handed over, a sheet's text, a number setting), and the outcome's common lines.
 
 ## How it plugs in
@@ -117,6 +117,7 @@ Daggerheart's values for the core's rules keys (the core's docs define each key)
 - `commitDaggerheartChanges` writes Hit Points marked (a companion's on its Stress, nothing for an NPC), Stress, Hope, a scar, consumables used, Armor Slots marked on the worn armor; then the conditions (`settleConditions`, by `CONDITION_KEYS`: Restrained on when restrained or immobilized is laid, off when one comes off and neither is laid); then how it ended (`settleDefeat`: dead, `beatenStatus` from the world's Defeated automation for adversaries and companions, else `defeated`; unconscious), marking a non-character combatant defeated and hiding one that fled (unless the core's fled mode is `leave`). The Hit Points go first, since the system's Defeated automation reacts to them. Returns an undo record (its shape is at the top of `commit.js`).
 - `commitFearTurn` moves the world's `ResourcesFear` by as much as the turn moved it, with an undo record for the setting.
 - `commitDaggerheartConcession` pays gold through the world's currency (chests, bags, handfuls, coins, ten of each to the next) and hands items over unequipped, to a character only.
+- API 19's players' damage: `damageCard` (`readDaggerheartDamage`: the main roll's damage, else a heal's Hit Points; an attack's targets only those it hit; `save` when the action calls for a reaction roll), `applyDamageCard` (`applyDaggerheartDamage`: the system's `Actor#takeDamage` / `takeHealing`, times the multiplier, waiting for the writes it doesn't await; undo records of the resources, Armor Slots and Fear it changed) and `appliesPlayerDamage` (while the system's Automation `roll.damageApply.players` is on).
 - `readDaggerheartTurn` reads a player's cards: an action roll at a target with damage as an attack (a hit at the target's Difficulty or Evasion, a critical on matching dice), a Presence roll as words for the GM to confirm, healing; a roll with Fear or a failure hands the spotlight off. Each event says whether it's `sure`.
 
 ## Development

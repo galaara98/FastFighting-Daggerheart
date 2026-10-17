@@ -5,11 +5,13 @@
  * Stress marked (what it took), and defeated as the world says. An NPC: how it ended up (it marks nothing). Any of them:
  * the conditions it gained or lost (Vulnerable, Hidden, Restrained), as the system's statuses. The GM's Fear
  * (the world's), by as much as the turn moved it. Consumables used come off what it carries; gold or an item it gave up
- * (a deal, a demand, a theft) goes to whoever it went to. And what a fight changes, in words, for the planner.
+ * (a deal, a demand, a theft) goes to whoever it went to. A player's damage card, applied through the system's own
+ * damage handling. And what a fight changes, in words, for the planner.
  *
  * Undo record shape (consumed by the core, to rewind a turn or the whole encounter):
  *   { tokenUuid, actorUuid, actorUpdate, itemUpdates: [{id, update}], createdItems, deletedItems, createdEffects,
- *     tokenUpdate, createdActors, createdTokens, deletedTokens, statuses: [{id, active}], combatant, setting }
+ *     deletedEffects, tokenUpdate, createdActors, createdTokens, deletedTokens, statuses: [{id, active}], statusesBefore,
+ *     combatant, setting }
  */
 import { STATUS, commonOutcome, statusesOf, statusEntry, toggleStatus, undoRecord, handOverItem } from "./core.js";
 import { FEAR_MAX } from "./rules.js";
@@ -217,6 +219,133 @@ export async function commitFearTurn(before, after) {
   const fear = Math.max(0, Math.min(FEAR_MAX, (Number.isFinite(current) ? current : was) + now - was));
   await game.settings.set(SYSTEM, "ResourcesFear", fear);
   return [{ ...undoRecord(null, null), setting: { namespace: SYSTEM, key: "ResourcesFear", value: current } }];
+}
+
+/** How long the system's writes of a damage card may take to show on the sheet: it sends them without waiting. */
+const LANDING_MS = 3000;
+
+/** A card's roll (a Roll, or its JSON) as the system's takeDamage and takeHealing read one: {total, options}, or null. */
+function rollData(roll) {
+  let data = roll;
+  if ( typeof roll === "string" ) {
+    try {
+      data = JSON.parse(roll);
+    } catch ( err ) {
+      return null;
+    }
+  }
+  const total = Number(data?.total);
+  if ( data == null || !Number.isFinite(total) ) return null;
+  const options = data.options ?? {};
+  return { total: Math.max(0, total), options: { damageTypes: [...(options.damageTypes ?? [])], fullRestore: !!options.fullRestore, itemId: options.itemId ?? null } };
+}
+
+/** A sheet's resources as they stand (Hit Points and Stress marked, Hope): {key: {value, max, reversed}}. */
+function resourcesOf(actor) {
+  const out = {};
+  for ( const [key, r] of Object.entries(actor.system?.resources ?? {}) ) {
+    if ( Number.isFinite(Number(r?.value)) ) out[key] = { value: Number(r.value), max: r.max, reversed: !!r.isReversed };
+  }
+  return out;
+}
+
+/** Where one of the system's resource updates leaves a resource (Actor#modifyResource's arithmetic). */
+function landsAt(was, u) {
+  const value = u.clear ? (was.max && !was.reversed ? was.max : 0) : was.value + Number(u.value);
+  return Math.max(Math.min(value, was.max), 0);
+}
+
+/**
+ * Until the sheet shows what the system wrote ({key: value} of its resources), or LANDING_MS has passed: its
+ * modifyResource sends the update without waiting for it, and the core reads the sheet next.
+ */
+async function landed(actor, expected) {
+  const wanted = Object.entries(expected).filter(([, v]) => Number.isFinite(v));
+  const done = () => wanted.every(([key, v]) => Number(actor.system?.resources?.[key]?.value) === v);
+  for ( let waited = 0; !done() && waited < LANDING_MS; waited += 25 ) await new Promise(resolve => setTimeout(resolve, 25));
+}
+
+/**
+ * A character's Armor Slots where the system marks them: its armor items, and the armor effects of its own (an item's
+ * effect it can't be put back from here).
+ */
+function armorOf(actor) {
+  const items = [...(actor.items ?? [])].filter(i => i.type === "armor").map(i => ({ id: i.id, current: Number(i.system?.armor?.current) || 0 }));
+  const effects = [...(actor.effects ?? [])].filter(e => e.system?.armorData && typeof e.toObject === "function").map(e => e.toObject());
+  return { items, effects };
+}
+
+/**
+ * A player's damage card (or heal) applied to one token through the system's own Actor#takeDamage (resistances,
+ * thresholds to Hit Points marked, a character's Armor Slots, its hooks and triggers) or Actor#takeHealing. `multiplier`
+ * (the GM's Half or Double) goes on the Hit Point damage, as a save's does in the system, and on all a heal restores. The
+ * target's damage-taken multiplier applies, as the system's Apply does; a save's result doesn't (the GM's call).
+ * Returns undo records: the resources it changed, as they were (actorUpdate); Armor Slots on armor (itemUpdates) and on
+ * the character's own armor effects (taken off and put back as they were); the GM's Fear (a setting); and statuses laid
+ * along the way come off (statusesBefore).
+ * @param {ChatMessage} message
+ * @param {TokenDocument} tokenDoc
+ * @returns {Promise<object[]>}
+ */
+export async function applyDaggerheartDamage(message, tokenDoc, { multiplier = 1 } = {}) {
+  const actor = tokenDoc?.actor;
+  const sys = message?.system;
+  if ( !actor || !sys ) return [];
+  const times = Number.isFinite(Number(multiplier)) ? Math.max(0, Number(multiplier)) : 1;
+  const healing = !!sys.hasHealing;
+  const resources = {};
+  for ( const [key, roll] of Object.entries(sys.damage?.resources ?? {}) ) {
+    const r = rollData(roll);
+    // (One counted on an item's uses belongs to the acting item, not to the target.)
+    if ( !r || r.options.itemId ) continue;
+    if ( healing ) r.total = Math.ceil(r.total * times);
+    resources[key] = r;
+  }
+  const main = healing ? null : rollData(sys.damage?.main);
+  if ( main ) {
+    const taken = Number(actor.system?.rules?.attack?.damage?.hpDamageTakenMultiplier);
+    main.total = Math.ceil(main.total * (Number.isFinite(taken) ? taken : 1) * times);
+  }
+  if ( !main && !Object.keys(resources).length ) return [];
+  const undo = undoRecord(tokenDoc, actor);
+  const before = resourcesOf(actor);
+  const armor = actor.type === "character" ? armorOf(actor) : null;
+  let fear = null;
+  if ( "fear" in resources ) {
+    try {
+      fear = Number(game.settings.get(SYSTEM, "ResourcesFear"));
+    } catch ( err ) {
+      fear = null;
+    }
+  }
+  const result = healing
+    ? await actor.takeHealing({ resources })
+    : await actor.takeDamage({ ...(main ? { main } : {}), resources }, !!sys.isDirect);
+  // (A companion marks a Stress for any damage, and says nothing back; null or none: nothing was done.)
+  const updates = Array.isArray(result) ? result : result === undefined && !healing && actor.type === "companion" ? [{ key: "stress", value: 1 }] : [];
+  if ( !updates.length ) return [];
+  const records = [undo];
+  const expected = {};
+  let armorKept = false;
+  for ( const u of updates ) {
+    if ( !u || u.itemId ) continue;
+    if ( u.key === "fear" ) {
+      if ( Number.isFinite(fear) && !records.some(r => r.setting) ) records.push({ ...undoRecord(null, null), setting: { namespace: SYSTEM, key: "ResourcesFear", value: fear } });
+    } else if ( u.key === "armor" ) {
+      if ( !armor || armorKept ) continue;
+      armorKept = true;
+      for ( const i of armor.items ) undo.itemUpdates.push({ id: i.id, update: { "system.armor.current": i.current } });
+      for ( const e of armor.effects ) {
+        undo.createdEffects.push(e._id);
+        undo.deletedEffects.push(e);
+      }
+    } else if ( Object.hasOwn(before, u.key) ) {
+      undo.actorUpdate[`system.resources.${u.key}.value`] = before[u.key].value;
+      expected[u.key] = landsAt(before[u.key], u);
+    }
+  }
+  await landed(actor, expected);
+  return records;
 }
 
 /** Gold as the world's currency has it, from an amount in its smallest coin: {chests, bags, handfuls, coins}. */

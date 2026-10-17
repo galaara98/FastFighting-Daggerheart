@@ -134,7 +134,7 @@ Do it For Real Now writes each turn onto the sheets as it's played:
 - **Anyone:** Vulnerable, Hidden and Restrained, put on or taken off by the fight or by the GM in the Battle Vantage; gold or an item given up (a deal, a demand, a theft), to whoever took it, if that's a character.
 - **The GM's Fear,** written to the world.
 
-A player's spotlight is read from the system's roll cards: an attack and its damage, healing, and a Presence roll as words for the GM to confirm. A roll with Fear, or one that failed, hands the spotlight to the GM. **Rewind** takes one turn back; **Rewind This Encounter**, all of it.
+A player's spotlight is read from the system's roll cards: an attack and its damage, healing, and a Presence roll as words for the GM to confirm. A roll with Fear, or one that failed, hands the spotlight to the GM. A player's damage at a creature FastFighting runs is applied at once or put before the GM in the Battle Vantage, as **Apply players' damage** says; that toggle is greyed out while Daggerheart's own Automation applies players' damage. **Rewind** takes one turn back; **Rewind This Encounter**, all of it.
 
 ## Settings
 

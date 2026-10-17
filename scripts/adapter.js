@@ -39,8 +39,8 @@ import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, fist
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
-import { commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitDaggerheartConcession } from "./commit.js";
-import { readDaggerheartTurn } from "./read-turn.js";
+import { commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitDaggerheartConcession, applyDaggerheartDamage } from "./commit.js";
+import { readDaggerheartTurn, readDaggerheartDamage } from "./read-turn.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
@@ -998,6 +998,31 @@ export class DaggerheartAdapter extends SystemAdapter {
   /** A player character's spotlight, read from the daggerheart system's cards (read-turn.js). */
   readTurn(messages, context) {
     return readDaggerheartTurn(messages, context);
+  }
+
+  /** API 19. A player's damage or healing card, as it's made (read-turn.js readDaggerheartDamage). */
+  damageCard(message) {
+    return readDaggerheartDamage(message);
+  }
+
+  /** API 19. A damage card applied to one token through the system's own damage handling (commit.js). */
+  async applyDamageCard(message, token, options) {
+    return applyDaggerheartDamage(message, token, options);
+  }
+
+  /**
+   * API 19. While the system's own Automation applies players' damage (Apply Damage/Healing, for Players): that
+   * setting, as the GM finds it, in the system's words; else null.
+   */
+  appliesPlayerDamage() {
+    const automation = plain(setting("Automation") ?? globalThis.game?.system?.settings?.automation);
+    if ( !automation?.roll?.damageApply?.players ) return null;
+    return t("AutoApply.Name", {
+      system: t("Label"),
+      menu: systemWord("DAGGERHEART.SETTINGS.Menu.automation.name", "AutoApply.Menu"),
+      setting: systemWord("DAGGERHEART.SETTINGS.Automation.FIELDS.roll.damageApply.label", "AutoApply.Setting"),
+      who: systemWord("DAGGERHEART.GENERAL.player.plural", "AutoApply.Players")
+    });
   }
 
   /** Gold or an item, handed over (a deal, a demand, a theft). */

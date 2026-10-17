@@ -132,6 +132,12 @@
         "Hint": "Daggerheart doesn't say which spells need free hands. On: a tied-up creature can't cast until it's free. Off: it can."
       }
     },
+    "AutoApply": {
+      "Name": "{system}'s {menu} ({setting}: {who})",
+      "Menu": "Automation Settings",
+      "Setting": "Apply Damage/Healing",
+      "Players": "Players"
+    },
     "BreakFree": {
       "Trait": "{trait}: {roll} · {note}",
       "Plain": "{roll} · {note}"
