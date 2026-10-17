@@ -33,9 +33,9 @@
  * primary weapon, Armor Slots, potions, the features and cards in its loadout, its community; an adversary's type,
  * standard attack and action features.
  */
-import { SystemAdapter, hasWords, meanPart } from "./core.js";
+import { SystemAdapter, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
-import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, fistIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf } from "./actions.js";
+import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, fistIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf, num } from "./actions.js";
 import { loreBoost } from "./lore.js";
 import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
@@ -49,6 +49,8 @@ const TRAITS = Object.freeze(["agility", "strength", "finesse", "instinct", "pre
 const GOODS = Object.freeze(["weapon", "armor", "consumable", "loot"]);
 /** An adversary's tier, as the level of a character of that tier (for what's typical). */
 const TIER_LEVEL = Object.freeze({ 1: 1, 2: 3, 3: 6, 4: 9 });
+/** The pools it names itself in the planner (resourceLabel); an item's is its action's name. */
+const LABELLED = Object.freeze(["hope", "stress", "fear", "armor"]);
 
 const setting = key => {
   try {
@@ -58,7 +60,6 @@ const setting = key => {
   }
 };
 const plain = v => (typeof v?.toObject === "function" ? v.toObject() : v);
-const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 /** The system's ranges, in feet: its Range Measurement rule's, where it's on. */
 function ranges() {
@@ -930,9 +931,9 @@ export class DaggerheartAdapter extends SystemAdapter {
     return null;
   }
 
+  /** Its own pools' names (Hope, Stress, Fear, Armor Slots): the system's words, else this module's. */
   resourceLabel(key) {
-    const own = { hope: "hope", stress: "stress", fear: "fear", armor: "armor" }[key];
-    return own && hasWords(`DAGGERHEART.GENERAL.${own}`) ? game.i18n.localize(`DAGGERHEART.GENERAL.${own}`) : own ? t(`Resource.${own}`) : null;
+    return LABELLED.includes(key) ? resourceWord(key) : null;
   }
 
   get supportsLive() {

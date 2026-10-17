@@ -111,18 +111,11 @@
       "Hope": "{name}: {from} → {to}",
       "Armor": "{name} marked: {n}",
       "DeathMove": "Death move: {move}",
-      "Dies": "Dies",
       "Unconscious": "Unconscious",
-      "Retreated": "Retreated",
       "Scar": "Gains a scar",
       "Defeated": "Defeated",
       "DefeatedAs": "Defeated: {status} (the world's Defeated setting)",
-      "TalkedAway": "Talked away",
-      "Fled": "Fled",
-      "Surrenders": "Surrenders",
-      "StandsDown": "Stands down",
-      "Used": "Used: {name} ×{n}",
-      "Killed": "Killed"
+      "Used": "Used: {name} ×{n}"
     },
     "Encounter": {
       "Title": "The GM's Fear",

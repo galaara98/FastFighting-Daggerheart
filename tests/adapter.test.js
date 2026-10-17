@@ -8,6 +8,7 @@ import { describe, expect, test } from "vitest";
 import { DaggerheartAdapter } from "../scripts/adapter.js";
 import { daggerheartRules } from "../scripts/rules.js";
 import { describeDaggerheartOutcome } from "../scripts/commit.js";
+import { registerLoreBoost, loreBoost } from "../scripts/lore.js";
 import { replay } from "../../FastFighting/scripts/engine/simulator.js";
 import { parseFormula, STATUS, PC_BASELINE } from "../scripts/core.js";
 import { text } from "./foundry-i18n.js";
@@ -205,7 +206,21 @@ describe("a companion and an NPC", () => {
       text("FFDAGGERHEART.Out.Stress", { name: text("FFDAGGERHEART.Resource.stress"), from: 1, to: 3, max: 3 }), text("FFDAGGERHEART.Out.Defeated")
     ]);
     const clerk = { actorType: "npc", hp: { value: 1, max: 1 }, resources: {} };
-    expect(describeDaggerheartOutcome(clerk, { hp: 0, status: STATUS.FLED, system: {} })).toEqual([text("FFDAGGERHEART.Out.Fled")]);
+    expect(describeDaggerheartOutcome(clerk, { hp: 0, status: STATUS.FLED, system: {} })).toEqual([text("FASTFIGHTING.MakeItSo.Outcome.Fled")]);
+  });
+
+  test("how it ended up, in the core's words: tied up, won over, a character's death after its death move", () => {
+    const raider = { kind: "npc", actorType: "adversary", hp: { value: 3, max: 3 }, resources: {} };
+    expect(describeDaggerheartOutcome(raider, { hp: 3, status: STATUS.BEATEN, bound: true, system: {} })).toEqual([
+      text("FFDAGGERHEART.Out.Defeated"), text("FASTFIGHTING.MakeItSo.Outcome.TiedUp")
+    ]);
+    expect(describeDaggerheartOutcome(raider, { hp: 3, status: STATUS.STANDING, swayed: "switched", side: "friendly", system: {} }))
+      .toEqual([text("FASTFIGHTING.MakeItSo.Outcome.SwitchesFriendly")]);
+    const hero = { kind: "pc", duality: true, actorType: "character", hp: { value: 1, max: 6 }, resources: { hope: 2 } };
+    expect(describeDaggerheartOutcome(hero, { hp: 0, status: STATUS.DEAD, system: { hope: 2, deathMove: "blaze" } })).toEqual([
+      text("FFDAGGERHEART.Out.HitPoints", { name: text("FFDAGGERHEART.Resource.hp"), from: 5, to: 6, max: 6 }),
+      text("FFDAGGERHEART.Out.DeathMove", { move: text("FFDAGGERHEART.DeathMove.blaze") }), text("FASTFIGHTING.MakeItSo.Outcome.Dies")
+    ]);
   });
 });
 
@@ -373,5 +388,22 @@ describe("the reactions a player chooses about", () => {
   test("its own reaction features; no opportunity strike (Daggerheart has none)", () => {
     const list = new DaggerheartAdapter().reactionsOf({ reactions: [{ id: "a.thorny", label: "Thorny Armor" }] });
     expect(list).toEqual([{ id: "a.thorny", label: "Thorny Armor" }]);
+  });
+});
+
+describe("the Lore-Collector's setting", () => {
+  test("registered as a world setting in the module's words; read within its bounds, its default when there's none", () => {
+    const registered = [];
+    globalThis.game.settings = { register: (...args) => registered.push(args) };
+    registerLoreBoost();
+    expect(registered).toEqual([["fast-fighting-daggerheart", "loreBoost", {
+      name: "FFDAGGERHEART.Settings.loreBoost.Name", hint: "FFDAGGERHEART.Settings.loreBoost.Hint", scope: "world", config: true, type: Number,
+      range: { min: 1.25, max: 3, step: 0.05 }, default: 2.4
+    }]]);
+    expect(loreBoost()).toBe(2.4);
+    for ( const [v, want] of [[2, 2], [9, 3], [1, 1.25], ["x", 2.4]] ) {
+      globalThis.game.settings = { get: () => v };
+      expect(loreBoost()).toBe(want);
+    }
   });
 });

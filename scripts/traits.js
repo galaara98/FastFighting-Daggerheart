@@ -20,7 +20,7 @@
  * Then its features, by what they do, and the damage it's immune to or resists.
  * A companion is bonded to its partner (loyal, on instinct); an NPC is no fighter (timid); each then by its features.
  */
-import { clamp, traitsFromParts, signedNumber, PC_BASELINE } from "./core.js";
+import { clamp, traitsFromParts, partsOf, signedNumber, PC_BASELINE } from "./core.js";
 import { t } from "./words.js";
 
 /** A character's six traits. */
@@ -176,9 +176,6 @@ export function featureLeans({ form = null, actions = [], changes = [] } = {}) {
   if ( (changes ?? []).some(k => /(?:^|\.)bonuses\.rally$/.test(String(k))) ) add("loyal", 2);
   return out;
 }
-
-/** Parts from a table's leaning ({trait: n}), with the reason they're shown with. */
-const partsOf = (lean, why, scale = 1) => Object.entries(lean ?? {}).map(([trait, n]) => ({ trait, n: n * scale, why }));
 
 /**
  * Its traits against the rest of its spread: against what its class suggests (each trait's lead or lag on its class's

@@ -40,7 +40,7 @@
  * Whether a creature tied up can still cast is the world's setting (tied-up.js).
  * Pure: no Foundry globals (words through t(); the setting through tied-up.js).
  */
-import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize, part } from "./core.js";
+import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize, listJoin, part } from "./core.js";
 import { DUALITY, dualityChances, d20Chances, rollDuality, rollD20 } from "./dice.js";
 import { CONDITION_KEYS, RANGES } from "./actions.js";
 import { tiedStopsSpells } from "./tied-up.js";
@@ -530,7 +530,7 @@ export const daggerheartRules = {
           o.hp = 0;
           o.status = STATUS.BEATEN;
         }
-        if ( fallen.length ) c.fallNote = t("Minion.More", { names: fallen.map(o => o.spec.name).join(", "), n: fallen.length });
+        if ( fallen.length ) c.fallNote = t("Minion.More", { names: listJoin(fallen.map(o => o.spec.name)), n: fallen.length });
       }
       return c.status;
     }
@@ -773,7 +773,6 @@ export const daggerheartRules = {
     };
   },
 
-  secondsPerRound: 6,
   /** A character's "retreat when hurt": with a Hit Point or two left. */
   retreatAt: 0.34,
 

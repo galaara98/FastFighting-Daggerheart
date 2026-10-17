@@ -98,7 +98,8 @@ const FEATURE_MOVES = Object.freeze({
 });
 
 const list = v => (Array.isArray(v) ? v : v instanceof Set ? [...v] : v && typeof v === "object" ? Object.values(v) : v ? [v] : []);
-const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
+/** A number from the sheet, 0 for none. */
+export const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
 /** Where an action reaches: {melee, reach} for Melee, {range} beyond it, null for itself (or no range at all). */
 export function reachOf(key, ranges = RANGES) {

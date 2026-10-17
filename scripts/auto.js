@@ -6,6 +6,7 @@
  * domains (so a homebrew class counts as its domains say), its features and cards by what their actions and effects do,
  * its community by its lore reference; an adversary by its type, its standard attack and what its features do. Pure.
  */
+import { plainText as sheetText } from "./core.js";
 
 /** What each domain leans a character toward (a class has two; they add up). */
 const DOMAINS = Object.freeze({
@@ -251,14 +252,8 @@ function adversaryTactics(d, say) {
   if ( d.type === "social" && d.talks !== false && purse.handful > 0 && purse.money >= purse.handful ) say("offer", handfuls(1, purse), kind);
 }
 
-/** Text from the sheet's HTML: the class's own questions (in bold) left out, so only what was written counts. */
-export function plainText(html) {
-  return String(html ?? "")
-    .replace(/<strong[^>]*>[\s\S]*?<\/strong>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, "\"")
-    .replace(/\s+/g, " ").trim();
-}
+/** Text from the sheet's HTML (the core's): the class's own questions (in bold) left out, so only what was written counts. */
+export const plainText = html => sheetText(html, { bold: false });
 
 /**
  * Its biography as the core reads it (adapter-base biography()): what's said of it, its story, what it's against.

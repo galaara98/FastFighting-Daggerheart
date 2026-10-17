@@ -11,24 +11,12 @@
  *   { tokenUuid, actorUuid, actorUpdate, itemUpdates: [{id, update}], createdItems, deletedItems, createdEffects,
  *     tokenUpdate, createdActors, createdTokens, deletedTokens, statuses: [{id, active}], combatant, setting }
  */
-import { STATUS } from "./core.js";
+import { STATUS, commonOutcome, statusesOf, statusEntry, toggleStatus, undoRecord, handOverItem } from "./core.js";
 import { FEAR_MAX } from "./rules.js";
 import { CONDITION_KEYS } from "./actions.js";
 import { t, systemWord, resourceWord } from "./words.js";
 
 const SYSTEM = "daggerheart";
-
-export function statusesOf(actor) {
-  const out = new Set(actor?.statuses ?? []);
-  for ( const e of actor?.effects ?? [] ) if ( !e.disabled ) for ( const s of e.statuses ?? [] ) out.add(s);
-  return out;
-}
-
-const emptyRecord = (tokenDoc, actor) => ({
-  tokenUuid: tokenDoc?.uuid ?? null, actorUuid: actor?.uuid ?? null, actorUpdate: {}, itemUpdates: [], createdItems: [], deletedItems: [], createdEffects: [],
-  tokenUpdate: null, createdActors: [], createdTokens: [], deletedTokens: [], statuses: [],
-  statusesBefore: actor ? [...statusesOf(actor)] : []
-});
 
 /** Hit Points marked, from the Hit Points it had left. */
 const hpMarked = (spec, left) => Math.max(0, Math.min(spec.hp.max, spec.hp.max - Math.max(0, left)));
@@ -41,10 +29,15 @@ const harmTrack = spec => (spec.actorType === "companion" ? "stress" : spec.acto
 const stressMarked = (spec, left) => Math.max(0, (spec.stressMax ?? 0) - Math.max(0, left));
 const deathMoveName = move => systemWord(`DAGGERHEART.CONFIG.DeathMoves.${{ avoid: "avoidDeath", risk: "riskItAll", blaze: "blazeOfGlory" }[move] ?? "avoidDeath"}.name`, `DeathMove.${move}`);
 
-/** Human-readable list of what the fight changes, for the planner's summary of it. */
+/**
+ * Human-readable list of what the fight changes, for the planner's summary of it. How it ended up is in the core's words
+ * (commonOutcome: dead, gone, surrendered, stood down; tied up, a change of side), with Daggerheart's own around them:
+ * a death move, out cold, a scar; defeated.
+ */
 export function describeDaggerheartOutcome(spec, final) {
   const lines = [];
   const s = final.system ?? {};
+  const common = commonOutcome(spec, final, { hp: false });
   const track = harmTrack(spec);
   const hpBefore = hpMarked(spec, spec.hp.value);
   const hpAfter = hpMarked(spec, final.hp);
@@ -66,21 +59,17 @@ export function describeDaggerheartOutcome(spec, final) {
       if ( used > 0 ) lines.push(t("Out.Used", { name, n: used }));
     }
     if ( s.deathMove ) lines.push(t("Out.DeathMove", { move: deathMoveName(s.deathMove) }));
-    if ( final.status === STATUS.DEAD ) lines.push(t("Out.Dies"));
-    else if ( final.status === STATUS.DOWN ) lines.push(t("Out.Unconscious"));
-    else if ( final.status === STATUS.FLED ) lines.push(t("Out.Retreated"));
+    if ( final.status === STATUS.DOWN ) lines.push(t("Out.Unconscious"));
+    lines.push(...common);
     if ( s.scarred ) lines.push(t("Out.Scar"));
     return lines;
   }
-  if ( final.status === STATUS.DEAD ) lines.push(t("Out.Killed"));
-  else if ( final.status === STATUS.BEATEN ) {
+  if ( final.status === STATUS.BEATEN ) {
     // (What defeated means is the table's: the world's Defeated automation, when it's on, says which status.)
     const as = beatenStatus(spec.actorType);
     lines.push(as === "defeated" ? t("Out.Defeated") : t("Out.DefeatedAs", { status: statusName(as) }));
   } else if ( final.status === STATUS.DOWN ) lines.push(t("Out.Unconscious"));
-  else if ( final.status === STATUS.FLED ) lines.push(final.swayed ? t("Out.TalkedAway") : t("Out.Fled"));
-  else if ( final.status === STATUS.SURRENDERED ) lines.push(t("Out.Surrenders"));
-  else if ( final.status === STATUS.STOOD_DOWN ) lines.push(t("Out.StandsDown"));
+  lines.push(...common);
   return lines;
 }
 
@@ -112,7 +101,7 @@ function beatenStatus(type = "adversary") {
 
 /** A status's name, as the system calls it. */
 function statusName(id) {
-  const s = globalThis.CONFIG?.statusEffects?.find(e => e.id === id);
+  const s = statusEntry(id);
   return s?.name ? game.i18n.localize(s.name) : id;
 }
 
@@ -122,15 +111,9 @@ function statusName(id) {
  */
 async function settleDefeat(actor, want, undo) {
   for ( const id of DEFEAT ) {
-    if ( id !== want && statusesOf(actor).has(id) && !undo.statusesBefore.includes(id) ) await setStatus(actor, id, false, undo);
+    if ( id !== want && statusesOf(actor).has(id) && !undo.statusesBefore.includes(id) ) await toggleStatus(actor, id, false, undo);
   }
-  if ( want ) await setStatus(actor, want, true, undo, { overlay: want !== "unconscious" });
-}
-
-async function setStatus(actor, id, active, undo, { overlay = false } = {}) {
-  if ( statusesOf(actor).has(id) === active ) return;
-  await actor.toggleStatusEffect(id, { active, overlay });
-  undo.statuses.push({ id, active: !active, overlay });
+  if ( want ) await toggleStatus(actor, want, true, undo, { overlay: want !== "unconscious" });
 }
 
 /**
@@ -143,8 +126,8 @@ async function settleConditions(actor, conditions, undo) {
   const laid = Object.keys(conditions?.set ?? {});
   const lifted = conditions?.cleared ?? [];
   for ( const [status, keys] of Object.entries(CONDITION_KEYS) ) {
-    if ( keys.some(k => laid.includes(k)) ) await setStatus(actor, status, true, undo);
-    else if ( keys.some(k => lifted.includes(k)) ) await setStatus(actor, status, false, undo);
+    if ( keys.some(k => laid.includes(k)) ) await toggleStatus(actor, status, true, undo);
+    else if ( keys.some(k => lifted.includes(k)) ) await toggleStatus(actor, status, false, undo);
   }
 }
 
@@ -157,7 +140,7 @@ async function settleConditions(actor, conditions, undo) {
  */
 export async function commitDaggerheartChanges(tokenDoc, spec, changes, final, options = {}) {
   const actor = tokenDoc.actor;
-  const undo = emptyRecord(tokenDoc, actor);
+  const undo = undoRecord(tokenDoc, actor);
   const s = final.system ?? {};
   const was = options.before?.system ?? {};
   const update = {};
@@ -233,7 +216,7 @@ export async function commitFearTurn(before, after) {
   }
   const fear = Math.max(0, Math.min(FEAR_MAX, (Number.isFinite(current) ? current : was) + now - was));
   await game.settings.set(SYSTEM, "ResourcesFear", fear);
-  return [{ ...emptyRecord(null, null), setting: { namespace: SYSTEM, key: "ResourcesFear", value: current } }];
+  return [{ ...undoRecord(null, null), setting: { namespace: SYSTEM, key: "ResourcesFear", value: current } }];
 }
 
 /** Gold as the world's currency has it, from an amount in its smallest coin: {chests, bags, handfuls, coins}. */
@@ -250,6 +233,7 @@ function goldFor(amount, kinds) {
 /**
  * Hand over what a creature gave up (or had stolen): gold, or one item. A character pays from its gold (made back into
  * chests, bags, handfuls and coins); an adversary counts no gold (the SRD doesn't), so only the one it goes to gains.
+ * An item (the core's handOverItem) goes unequipped, and only to a character.
  * Returns undo records.
  * @param {object[]} kinds  the world's currency, largest first: [{key, value}]
  */
@@ -263,7 +247,7 @@ export async function commitDaggerheartConcession(giverDoc, receiverDoc, concess
     if ( giver.system.gold ) {
       const before = { ...giver.system.gold };
       const after = goldFor(Math.max(0, worth(before) - concession.amount), kinds);
-      const undo = emptyRecord(giverDoc, giver);
+      const undo = undoRecord(giverDoc, giver);
       undo.actorUpdate["system.gold"] = before;
       await giver.update({ "system.gold": { ...before, ...after } });
       records.push(undo);
@@ -271,35 +255,16 @@ export async function commitDaggerheartConcession(giverDoc, receiverDoc, concess
     if ( receiver?.system.gold ) {
       const before = { ...receiver.system.gold };
       const after = goldFor(worth(before) + concession.amount, kinds);
-      const undo = emptyRecord(receiverDoc, receiver);
+      const undo = undoRecord(receiverDoc, receiver);
       undo.actorUpdate["system.gold"] = before;
       await receiver.update({ "system.gold": { ...before, ...after } });
       records.push(undo);
     }
     return records;
   }
-  const item = giver.items.get(concession.item?.id);
-  if ( !item ) return [];
-  const undo = emptyRecord(giverDoc, giver);
-  const data = item.toObject();
-  delete data._id;
-  data.system.quantity = 1;
-  data.system.equipped = false;
-  if ( (Number(item.system.quantity) || 1) > 1 ) {
-    undo.itemUpdates.push({ id: item.id, update: { "system.quantity": item.system.quantity } });
-    await item.update({ "system.quantity": item.system.quantity - 1 });
-  } else {
-    undo.deletedItems.push(item.toObject());
-    await item.delete();
-  }
-  records.push(undo);
-  if ( receiver?.type === "character" ) {
-    const got = emptyRecord(receiverDoc, receiver);
-    const [created] = await receiver.createEmbeddedDocuments("Item", [data]);
-    if ( created ) got.createdItems.push(created.id);
-    records.push(got);
-  }
-  return records;
+  return handOverItem(giverDoc, receiver?.type === "character" ? receiverDoc : null, concession.item?.id, {
+    prepare: data => { data.system.equipped = false; }
+  });
 }
 
 /** The GM's Fear going in, and as the fight left it: {before, after}. */
