@@ -203,3 +203,75 @@ describe("the system's own Automation applying players' damage", () => {
     }));
   });
 });
+
+describe("a character's Armor Slots, as FastFighting plays it", () => {
+  /**
+   * A character's token whose actor takes damage as the system does in brief: Hit Points marked by its thresholds, the
+   * question of which Armor Slots to mark put to its owner (the system's "armorSlot" query, here the browser's own
+   * CONFIG.queries handler), the answer's Hit Points marked and slots written.
+   */
+  const hero = ({ player = false, current = 0, max = 3 } = {}) => {
+    const armor = { uuid: "Actor.h1.Item.arm", system: { armor: { current, max } } };
+    const actor = {
+      id: "h1", uuid: "Actor.h1", name: "Brakka", type: "character", statuses: new Set(), effects: [], items: [], asked: [],
+      owner: player ? { id: "player1", isGM: false } : { id: "gm1", isGM: true },
+      allApplicableEffects: () => [],
+      system: { armor, resources: { hitPoints: { value: 0, max: 6, isReversed: true }, stress: { value: 0, max: 6, isReversed: true } }, damageThresholds: { major: 5, severe: 10 }, rules: {} },
+      async takeDamage(args) {
+        const n = args.main?.total ?? 0;
+        const marks = n >= 10 ? 3 : n >= 5 ? 2 : n > 0 ? 1 : 0;
+        const answer = await CONFIG.queries.armorSlot({ actorId: this.uuid, damage: marks, type: ["physical"] });
+        this.asked.push(answer);
+        const updates = [{ key: "hitPoints", value: answer.modifiedDamage }];
+        for ( const c of answer.armorChanges ) {
+          updates.push({ key: "armor", value: c.amount, uuid: c.uuid });
+          armor.system.armor.current += c.amount;
+        }
+        this.system.resources.hitPoints.value += answer.modifiedDamage;
+        return updates;
+      }
+    };
+    return { id: "tokH", uuid: "Scene.s1.Token.tokH", actor };
+  };
+  const withQueries = async fn => {
+    const was = { CONFIG: globalThis.CONFIG, user: game.user };
+    const dialog = [];
+    globalThis.CONFIG = { queries: { armorSlot: async data => { dialog.push(data); return { modifiedDamage: data.damage, armorChanges: [], stressSpent: 0 }; } } };
+    game.user = { id: "gm1", isGM: true };
+    try {
+      return await fn(dialog);
+    } finally {
+      globalThis.CONFIG = was.CONFIG;
+      game.user = was.user;
+    }
+  };
+
+  test("no player of its own here: no dialog; an Armor Slot marked where the engine marked one, none where it didn't", () => withQueries(async dialog => {
+    const own = CONFIG.queries.armorSlot;
+    const marked = hero();
+    await adapter.applyDamageCard(card({ damage: 7 }), marked, { multiplier: 1, amount: 1 });
+    expect(marked.actor.asked).toEqual([{ modifiedDamage: 1, armorChanges: [{ uuid: "Actor.h1.Item.arm", amount: 1 }], stressSpent: 0 }]);
+    expect(marked.actor.system.armor.system.armor.current).toBe(1);
+    const kept = hero();
+    await adapter.applyDamageCard(card({ damage: 7 }), kept, { multiplier: 1, amount: 2 });
+    expect(kept.actor.asked[0]).toEqual({ modifiedDamage: 2, armorChanges: [], stressSpent: 0 });
+    expect(dialog).toEqual([]);
+    // (The system's own question again afterwards.)
+    expect(CONFIG.queries.armorSlot).toBe(own);
+  }));
+
+  test("no slot free, or a Minor hit with no engine's say: none marked", () => withQueries(async () => {
+    const full = hero({ current: 3 });
+    await adapter.applyDamageCard(card({ damage: 12 }), full, { multiplier: 1, amount: 2 });
+    expect(full.actor.asked[0].armorChanges).toEqual([]);
+    const minor = hero();
+    await adapter.applyDamageCard(card({ damage: 3 }), minor, { multiplier: 1 });
+    expect(minor.actor.asked[0]).toEqual({ modifiedDamage: 1, armorChanges: [], stressSpent: 0 });
+  }));
+
+  test("a player of theirs here: the system's own question, their dialog", () => withQueries(async dialog => {
+    const token = hero({ player: true });
+    await adapter.applyDamageCard(card({ damage: 7 }), token, { multiplier: 1, amount: 1 });
+    expect(dialog).toEqual([{ actorId: "Actor.h1", damage: 2, type: ["physical"] }]);
+  }));
+});

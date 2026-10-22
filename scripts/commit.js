@@ -276,6 +276,53 @@ function armorOf(actor) {
 }
 
 /**
+ * The Armor Slots a character marks against a hit, as the engine marked them, for the system's own question (its
+ * "armorSlot" query's answer: {modifiedDamage, armorChanges, stressSpent}). `damage`: the Hit Points the hit marks before
+ * armor, as the system counts them; `amount`: the engine's after its own Armor Slot (a turn FastFighting plays), so one
+ * is marked where the engine's is less; without it, one against Major or worse. The slot is the character's armor's,
+ * else the first other source with one free (an effect's), and none where none is free. Reads the actor only.
+ */
+export function armorAnswer(actor, damage, amount = null) {
+  const marks = Math.max(0, Math.round(Number(damage) || 0));
+  const wants = Number.isFinite(amount) ? marks > amount : marks >= 2;
+  const effects = [...(actor?.allApplicableEffects?.() ?? actor?.effects ?? [])].filter(e => e?.system?.armorData && !e.disabled && !e.isSuppressed);
+  const sources = [...(actor?.system?.armor ? [actor.system.armor] : []), ...effects].map(d => {
+    const a = d.system?.armor ?? d.system?.armorData ?? {};
+    return { uuid: d.uuid, current: Number(a.current) || 0, max: Number(a.max) || 0 };
+  });
+  const free = sources.find(x => x.current < x.max);
+  const mark = wants && marks > 0 && !!free?.uuid;
+  return { modifiedDamage: mark ? marks - 1 : marks, armorChanges: mark ? [{ uuid: free.uuid, amount: 1 }] : [], stressSpent: 0 };
+}
+
+/**
+ * fn() (a hit taken through the system's Actor#takeDamage), the system's question of which Armor Slots a character
+ * marks answered here, with no dialog (armorAnswer), where the system asks this browser's GM: a character with no
+ * player of its own here, FastFighting playing it (actor.owner, the system's own choice of whom to ask). A character a
+ * player of theirs is here for is theirs to answer, in the system's dialog. Anything amiss: the system's own question.
+ */
+async function answeringArmor(actor, amount, fn) {
+  const queries = globalThis.CONFIG?.queries;
+  const own = queries?.armorSlot;
+  const here = actor?.type === "character" && typeof own === "function" && !!game.user?.isGM && actor.owner?.id === game.user.id;
+  if ( !here ) return fn();
+  queries.armorSlot = async data => {
+    if ( data?.actorId !== actor.uuid ) return own(data);
+    try {
+      return armorAnswer(actor, data.damage, amount);
+    } catch ( err ) {
+      console.warn("fast-fighting-daggerheart | answering the Armor Slot question", err);
+      return own(data);
+    }
+  };
+  try {
+    return await fn();
+  } finally {
+    queries.armorSlot = own;
+  }
+}
+
+/**
  * A damage card (or heal) applied to one token through the system's own Actor#takeDamage (resistances, thresholds to
  * Hit Points marked, a character's Armor Slots, its hooks and triggers) or Actor#takeHealing: a player's, a strike's
  * rollStrike rolled, or an action's damage rollDamage rolled (action-card.js). `multiplier` (the GM's Half or Double; a
@@ -285,12 +332,13 @@ function armorOf(actor) {
  * multiplier, or the GM's call).
  * Returns undo records: the resources it changed, as they were (actorUpdate); Armor Slots on armor (itemUpdates) and on
  * the character's own armor effects (taken off and put back as they were); the GM's Fear (a setting); and statuses laid
- * along the way come off (statusesBefore).
+ * along the way come off (statusesBefore). A character FastFighting plays marks its Armor Slots as the engine did
+ * (answeringArmor: `amount`, the engine's Hit Points marked after its own Armor Slot).
  * @param {ChatMessage} message
  * @param {TokenDocument} tokenDoc
  * @returns {Promise<object[]>}
  */
-export async function applyDaggerheartDamage(message, tokenDoc, { multiplier = 1 } = {}) {
+export async function applyDaggerheartDamage(message, tokenDoc, { multiplier = 1, amount = null } = {}) {
   const actor = tokenDoc?.actor;
   const sys = message?.system;
   if ( !actor || !sys ) return [];
@@ -323,7 +371,7 @@ export async function applyDaggerheartDamage(message, tokenDoc, { multiplier = 1
   }
   const result = healing
     ? await actor.takeHealing({ resources })
-    : await actor.takeDamage({ ...(main ? { main } : {}), resources }, !!sys.isDirect);
+    : await answeringArmor(actor, amount, () => actor.takeDamage({ ...(main ? { main } : {}), resources }, !!sys.isDirect));
   // (A companion marks a Stress for any damage, and says nothing back; null or none: nothing was done.)
   const updates = Array.isArray(result) ? result : result === undefined && !healing && actor.type === "companion" ? [{ key: "stress", value: 1 }] : [];
   if ( !updates.length ) return [];
