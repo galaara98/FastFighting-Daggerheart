@@ -8,7 +8,7 @@ FastFighting Core is a large but fixed set of options: turn orders, rolls, resou
 
 - **Foundry:** v14
 - **System:** Daggerheart (Foundryborne, `daggerheart`) 2.10 or later
-- **Needs:** [FastFighting Core](https://github.com/galaara98/FastFighting) 0.4.0 or later
+- **Needs:** [FastFighting Core](https://github.com/galaara98/FastFighting) 0.7.0 or later
 
 ## Installation
 
