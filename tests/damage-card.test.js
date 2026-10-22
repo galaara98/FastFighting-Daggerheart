@@ -246,12 +246,13 @@ describe("a character's Armor Slots, as FastFighting plays it", () => {
     }
   };
 
-  test("no player of its own here: no dialog; an Armor Slot marked where the engine marked one, none where it didn't", () => withQueries(async dialog => {
+  test("no player of its own here, in a turn FastFighting plays: no dialog; the engine's Hit Points, its Armor Slot left to the turn's changes", () => withQueries(async dialog => {
     const own = CONFIG.queries.armorSlot;
     const marked = hero();
     await adapter.applyDamageCard(card({ damage: 7 }), marked, { multiplier: 1, amount: 1 });
-    expect(marked.actor.asked).toEqual([{ modifiedDamage: 1, armorChanges: [{ uuid: "Actor.h1.Item.arm", amount: 1 }], stressSpent: 0 }]);
-    expect(marked.actor.system.armor.system.armor.current).toBe(1);
+    expect(marked.actor.asked).toEqual([{ modifiedDamage: 1, armorChanges: [], stressSpent: 0 }]);
+    // (Written once, with the turn: commitDaggerheartChanges, from the engine's armorMarked.)
+    expect(marked.actor.system.armor.system.armor.current).toBe(0);
     const kept = hero();
     await adapter.applyDamageCard(card({ damage: 7 }), kept, { multiplier: 1, amount: 2 });
     expect(kept.actor.asked[0]).toEqual({ modifiedDamage: 2, armorChanges: [], stressSpent: 0 });
@@ -260,10 +261,14 @@ describe("a character's Armor Slots, as FastFighting plays it", () => {
     expect(CONFIG.queries.armorSlot).toBe(own);
   }));
 
-  test("no slot free, or a Minor hit with no engine's say: none marked", () => withQueries(async () => {
+  test("outside a turn FastFighting plays (no engine's say): a slot against Major or worse, while one is free", () => withQueries(async () => {
+    const major = hero();
+    await adapter.applyDamageCard(card({ damage: 7 }), major, { multiplier: 1 });
+    expect(major.actor.asked[0]).toEqual({ modifiedDamage: 1, armorChanges: [{ uuid: "Actor.h1.Item.arm", amount: 1 }], stressSpent: 0 });
+    expect(major.actor.system.armor.system.armor.current).toBe(1);
     const full = hero({ current: 3 });
-    await adapter.applyDamageCard(card({ damage: 12 }), full, { multiplier: 1, amount: 2 });
-    expect(full.actor.asked[0].armorChanges).toEqual([]);
+    await adapter.applyDamageCard(card({ damage: 12 }), full, { multiplier: 1 });
+    expect(full.actor.asked[0]).toEqual({ modifiedDamage: 3, armorChanges: [], stressSpent: 0 });
     const minor = hero();
     await adapter.applyDamageCard(card({ damage: 3 }), minor, { multiplier: 1 });
     expect(minor.actor.asked[0]).toEqual({ modifiedDamage: 1, armorChanges: [], stressSpent: 0 });

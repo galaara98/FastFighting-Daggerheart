@@ -276,15 +276,17 @@ function armorOf(actor) {
 }
 
 /**
- * The Armor Slots a character marks against a hit, as the engine marked them, for the system's own question (its
- * "armorSlot" query's answer: {modifiedDamage, armorChanges, stressSpent}). `damage`: the Hit Points the hit marks before
- * armor, as the system counts them; `amount`: the engine's after its own Armor Slot (a turn FastFighting plays), so one
- * is marked where the engine's is less; without it, one against Major or worse. The slot is the character's armor's,
- * else the first other source with one free (an effect's), and none where none is free. Reads the actor only.
+ * The system's own question of which Armor Slots a character marks against a hit, answered as FastFighting plays it
+ * (its "armorSlot" query's answer: {modifiedDamage, armorChanges, stressSpent}). `damage`: the Hit Points the hit marks
+ * before armor, as the system counts them. In a turn FastFighting plays (`amount`: the engine's Hit Points, after its own
+ * Armor Slot), those Hit Points, and no slot marked here: the engine's is written with the turn's changes (commit.js
+ * commitDaggerheartChanges). Otherwise one slot against Major or worse, the character's armor's, else the first other
+ * source with one free (an effect's); none where none is free. Reads the actor only.
  */
 export function armorAnswer(actor, damage, amount = null) {
   const marks = Math.max(0, Math.round(Number(damage) || 0));
-  const wants = Number.isFinite(amount) ? marks > amount : marks >= 2;
+  if ( Number.isFinite(amount) ) return { modifiedDamage: Math.min(marks, Math.max(0, Math.round(amount))), armorChanges: [], stressSpent: 0 };
+  const wants = marks >= 2;
   const effects = [...(actor?.allApplicableEffects?.() ?? actor?.effects ?? [])].filter(e => e?.system?.armorData && !e.disabled && !e.isSuppressed);
   const sources = [...(actor?.system?.armor ? [actor.system.armor] : []), ...effects].map(d => {
     const a = d.system?.armor ?? d.system?.armorData ?? {};
@@ -332,7 +334,7 @@ async function answeringArmor(actor, amount, fn) {
  * multiplier, or the GM's call).
  * Returns undo records: the resources it changed, as they were (actorUpdate); Armor Slots on armor (itemUpdates) and on
  * the character's own armor effects (taken off and put back as they were); the GM's Fear (a setting); and statuses laid
- * along the way come off (statusesBefore). A character FastFighting plays marks its Armor Slots as the engine did
+ * along the way come off (statusesBefore). A character FastFighting plays isn't asked which Armor Slots to mark
  * (answeringArmor: `amount`, the engine's Hit Points marked after its own Armor Slot).
  * @param {ChatMessage} message
  * @param {TokenDocument} tokenDoc
