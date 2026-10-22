@@ -334,3 +334,22 @@ export function leaderBonus(score) {
   if ( score >= 2 ) return { brave: 10, tacticalFloor: 35, attack: 0, ac: 0 };
   return { brave: 5, tacticalFloor: 0, attack: 0, ac: 0 };
 }
+
+/**
+ * A trait on the core's aptitude scale (0 to 4, 2 average): a character starts with +2, +1, +1, +0, +0 and -1, and
+ * raises them as it levels. -2 or lower 0, -1 1, +0 2, +1 or +2 3, +3 or more 4.
+ */
+export function aptitudeBand(value) {
+  const v = Math.round(Number(value) || 0);
+  return v <= -2 ? 0 : v === -1 ? 1 : v === 0 ? 2 : v <= 2 ? 3 : 4;
+}
+
+/**
+ * What a character is like on the core's hidden scale (aptitudes, core API 23), from its traits, each banded
+ * (aptitudeBand): smart its Knowledge, strong its Strength, fast its Agility, wise its Instinct, charismatic its Presence.
+ * An adversary has no traits, so none: the core's own reading (a beast's wits, flags.beast).
+ */
+export function aptitudesOf(traits = {}) {
+  const of = k => aptitudeBand(traits?.[k]);
+  return { smart: of("knowledge"), strong: of("strength"), fast: of("agility"), wise: of("instinct"), charismatic: of("presence") };
+}

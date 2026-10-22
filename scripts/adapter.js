@@ -35,9 +35,10 @@
  */
 import { SystemAdapter, meanPart } from "./core.js";
 import { daggerheartRules, FEAR_MAX, FEAR_SPENDING } from "./rules.js";
+import { tiedStopsSpells } from "./tied-up.js";
 import { toActionSpec, toReactionSpec, toSummonSpec, summonCount, bodyIcon, fistIcon, traitMoves, featureMove, attackMove, helpAnAlly, mendsOthers, RANGES, CONDITION_KEYS, conditionKeysOf, num, experienceList, SOCIAL_WORDS } from "./actions.js";
 import { loreBoost } from "./lore.js";
-import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey } from "./traits.js";
+import { deriveDaggerheartTraits, rankDaggerheartLeaders, isBeast, subclassKey, loreKey, aptitudesOf } from "./traits.js";
 import { daggerheartHints, daggerheartTactics, biographyOf, tierOf } from "./auto.js";
 import { commitDaggerheartChanges, commitFearTurn, describeDaggerheartOutcome, describeFear, commitDaggerheartConcession, applyDaggerheartDamage } from "./commit.js";
 import { readDaggerheartTurn, readDaggerheartDamage } from "./read-turn.js";
@@ -267,6 +268,14 @@ export class DaggerheartAdapter extends SystemAdapter {
     return daggerheartRules;
   }
 
+  /**
+   * The same rules for the planner's background workers (the core's API 22): rules.js and what it imports touch nothing
+   * of Foundry's; the one world setting they read (tied-up.js) goes along as data (rules.js daggerheartRulesFor).
+   */
+  workerRules() {
+    return { url: new URL("./rules.js", import.meta.url).href, exportName: "daggerheartRulesFor", data: { tiedStopsSpells: tiedStopsSpells() } };
+  }
+
   canHandle(actor) {
     return !!actor && ["character", "adversary", "environment", "companion", "npc"].includes(actor.type);
   }
@@ -404,6 +413,8 @@ export class DaggerheartAdapter extends SystemAdapter {
       traits: Object.fromEntries(Object.entries(derived.traits).map(([k, v]) => [k, { base: v, fudge: 0 }])),
       traitReasons: derived.reasons,
       flags: { ...derived.flags },
+      // (What it's like, on the core's hidden scale: traits.js aptitudesOf, from its traits. Core API 23.)
+      aptitudes: aptitudesOf(traits),
       diesAtZero: false,
       perception: traits.instinct,
       creatureTraits: ["humanoid"],

@@ -1,5 +1,9 @@
 {
   "FFDAGGERHEART": {
+    "Rolls": {
+      "Sprint": "Sprint",
+      "StruckDown": "Struck while out cold"
+    },
     "Label": "Daggerheart",
     "NeedsCore": "FastFighting Daggerheart needs the FastFighting module (the core) to be active.",
     "CoreTooOld": "FastFighting Daggerheart needs a newer FastFighting Core. Update FastFighting.",

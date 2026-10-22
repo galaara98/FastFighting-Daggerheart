@@ -196,6 +196,7 @@ describe("a check, rolled the daggerheart system's way", () => {
     // (First aid: the better of Knowledge and Instinct, Knowledge when even; an escape: the better of Strength and Agility.)
     expect(of("firstAid")).toBe("knowledge");
     expect(of("escape")).toBe("agility");
+    expect(of("sprint")).toBe("agility");
     token.actor.system.traits.instinct.value = 2;
     expect(of("firstAid")).toBe("instinct");
     expect(of("control", "tokA.grapple")).toBe("strength");

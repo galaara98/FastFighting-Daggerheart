@@ -7,7 +7,7 @@
  *     trait the save names (of several, the better on the sheet), against the save's Difficulty. It brings no Hope or
  *     Fear, and a critical is only a success.
  *   - A check is an action roll with the trait the adapter's sheets give it: words, Presence; a theft, Finesse; first
- *     aid, the better of Knowledge and Instinct; an escape, the trait its `skill` names by its key (rules.js breakFree
+ *     aid, the better of Knowledge and Instinct; a sprint (rules.js startTurn), Agility; an escape, the trait its `skill` names by its key (rules.js breakFree
  *     names its own: out of bonds, or freeing a friend, Strength or Finesse), else the better of Strength and Agility (the
  *     core's own holds); a trait move, by its id
  *     (actions.js traitMoves: Grapple and Shove, Strength; Maneuver, Agility; Hide, Finesse). Anything else (a spell
@@ -39,7 +39,7 @@ const TRAITS = Object.freeze(["agility", "strength", "finesse", "instinct", "pre
 const MOVE_TRAITS = Object.freeze({ grapple: "strength", shove: "strength", maneuver: "agility", hide: "finesse" });
 
 /** Each other check the helper makes, by its purpose: the traits it's rolled with, as the adapter's sheets have them. */
-const CHECK_TRAITS = Object.freeze({ talk: ["presence"], theft: ["finesse"], firstAid: ["knowledge", "instinct"], escape: ["strength", "agility"] });
+const CHECK_TRAITS = Object.freeze({ talk: ["presence"], theft: ["finesse"], firstAid: ["knowledge", "instinct"], escape: ["strength", "agility"], sprint: ["agility"] });
 
 /** A trait as the sheet has it (0 for none: an adversary's). */
 const traitValue = (actor, key) => Number(actor?.system?.traits?.[key]?.value) || 0;

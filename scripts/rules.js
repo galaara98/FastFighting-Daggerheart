@@ -40,13 +40,13 @@
  * Whether a creature tied up can still cast is the world's setting (tied-up.js).
  * Pure: no Foundry globals (words through t(); the setting through tied-up.js).
  */
-import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize, listJoin, part } from "./core.js";
+import { STATUS, DOWNED_MODELS, clamp, dropCondition, edgeDistance, localize, listJoin, part, hiddenFrom } from "./core.js";
 // (The core's systemRolled and rollCheck came with its API 19: read off the whole, so an older core still loads this.)
 import * as coreApi from "./core.js";
 import { DUALITY, dualityChances, dualityWith, d20Chances, rollDuality, rollD20 } from "./dice.js";
 import { CONDITION_KEYS, RANGES } from "./actions.js";
 import { tiedStopsSpells } from "./tied-up.js";
-import { t, systemWord } from "./words.js";
+import { t, systemWord, deathMoveName } from "./words.js";
 
 /** The most Fear the GM can hold. */
 export const FEAR_MAX = 12;
@@ -188,7 +188,7 @@ function heal(c, amount) {
 /** How a player character meets its end, as its playstyles lean (the first that leans), else its nerve. */
 const DEATH_LEANS = Object.freeze({
   martyr: "blaze", redeemSeeker: "blaze",
-  wildcard: "risk", impatient: "risk", brawler: "risk", speedRunner: "risk", instigator: "risk", vengeful: "risk", relentless: "risk",
+  wildcard: "risk", impatient: "risk", brawler: "risk", dps: "risk", instigator: "risk", vengeful: "risk", relentless: "risk",
   chicken: "avoid", fragile: "avoid", lazy: "avoid", mercenary: "avoid", diplomat: "avoid", peacekeeper: "avoid", skeptic: "avoid", wallflower: "avoid"
 });
 export function deathMoveOf(u) {
@@ -252,15 +252,26 @@ function triedLine(roll, mod, dc, label) {
 }
 
 /**
- * A check the rules roll themselves (breaking free): in a turn FastFighting plays, the system's own roll where it makes
- * checks, asked as the engine asks for its own (the core's systemRolled; `request` {target, purpose, skill, label}), its
- * Duality Dice settling Hope and Fear (asRolled, through the core's rollCheck); else, or with a core without them, the
- * rules' own dice.
+ * A check the rules roll themselves (breaking free, a sprint): in a turn FastFighting plays, the system's own roll where
+ * it makes checks, asked as the engine asks for its own (the core's systemRolled; `request` {target, purpose, skill,
+ * label}), its Duality Dice settling Hope and Fear (asRolled, through the core's rollCheck); else the rules' own dice, a
+ * table roll a live battle shows (`options.label` what for); with a core without either, the rules' own dice.
  */
 function ownCheck(run, who, mod, dc, options, request) {
   const rolled = typeof coreApi.systemRolled === "function" ? coreApi.systemRolled(run, who, "check", { dc, ...request }) : null;
   if ( typeof coreApi.rollCheck !== "function" ) return daggerheartRules.roll(run.rng, mod, dc, options);
   return coreApi.rollCheck(daggerheartRules, run.rng, mod, dc, { ...options, rolled });
+}
+
+/**
+ * Dice the rules roll that a person would roll at the table (a death move's), each shown as a roll of its own where the
+ * dice record (a live battle): `by` rolls them, `label` says what for. Returns the results.
+ */
+function shownDice(rng, faces, { by = null, label = "" } = {}) {
+  const at = rng.mark?.();
+  const dice = faces.map(f => rng.die(f));
+  if ( at !== undefined ) rng.record?.(at, { by, kind: "other", label, total: dice[0], each: true });
+  return dice;
 }
 
 /** The first of `list` after `from` in the fight's order, round again to the first. */
@@ -307,7 +318,8 @@ export const daggerheartRules = {
       u.sprinting = "made";
       return { text: t("Sprint.Adversary") };
     }
-    const roll = daggerheartRules.roll(run.rng, Number(u.spec.sprint.mod) || 0, 12, { roller: u, faces: DUALITY, kind: "check" });
+    const label = t("Rolls.Sprint");
+    const roll = ownCheck(run, u, Number(u.spec.sprint.mod) || 0, 12, { roller: u, faces: DUALITY, kind: "check", label }, { target: null, purpose: "sprint", skill: "agility", label });
     u.sprinting = roll.degree >= 2 ? "made" : "missed";
     return { text: t(u.sprinting === "made" ? "Sprint.Made" : "Sprint.Missed", { note: roll.note }) };
   },
@@ -407,6 +419,11 @@ export const daggerheartRules = {
     const reaction = options.kind === "save";
     const experience = u ? experienceFor(rng, u, mod, dc, options, reaction) : null;
     const roll = rollDuality(rng, mod + (experience?.value ?? 0), dc, { advantage: options.advantage, reaction, crit: !!u?.lastStand });
+    // (As a table roll: the Hope die, the Fear die, then the advantage or disadvantage d6, added or taken away.)
+    roll.shown = [
+      { dice: 1, roll: 0, mod: mod + (experience?.value ?? 0), total: roll.total }, { dice: 1, roll: 0 },
+      ...(roll.extra ? [{ dice: 1, roll: 0, sign: Math.sign(roll.extra) }] : [])
+    ];
     if ( experience ) roll.experience = experience;
     // (A companion's Hope is its partner's; its Fear, the GM's.)
     if ( u && !reaction ) settle(u.partner ?? u, roll);
@@ -462,10 +479,12 @@ export const daggerheartRules = {
   /**
    * The Hit Points a hit marks. `iwr.dh`: {thresholds: {major, severe}, physical/magical: {resistance, immunity,
    * reduction}, reduce: {physical, magical} (steps a feature takes off), minorImmune, massive, armor (its slots),
-   * minion (X), multiplier}. With `target` (the fight itself), Armor Slots are marked and Stress taken; without (an
-   * estimate), a character with slots is reckoned to mark one against Major or worse.
+   * minion (X), multiplier}. A blow (`target` given), its Armor Slots marked and Stress taken; an estimate (no target,
+   * or the core's `ctx.estimate`, API 25) changes nothing and reads nothing a fight changes: a character with slots is
+   * reckoned to mark one against Major or worse.
    */
-  applyIwr(iwr, byType, target = null, { direct = false } = {}) {
+  applyIwr(iwr, byType, target = null, { direct = false, estimate = false } = {}) {
+    if ( estimate ) target = null;
     const dh = iwr?.dh;
     let raw = 0;
     let stress = 0;
@@ -571,8 +590,7 @@ export const daggerheartRules = {
     }
     if ( c.status === STATUS.DOWN ) {
       if ( !rng ) return c.status;
-      const hope = rng.die(12);
-      const fear = rng.die(12);
+      const [hope, fear] = shownDice(rng, [12, 12], { by: c, label: t("Rolls.StruckDown") });
       if ( fear > hope ) c.status = STATUS.DEAD;
       c.fallNote = t(fear > hope ? "DeathMove.Finished" : "DeathMove.HangsOn", { hope, fear });
       return c.status;
@@ -590,13 +608,12 @@ export const daggerheartRules = {
     c.deathMove = move;
     if ( move === "blaze" ) {
       c.hp = 0;
-      c.lastStand = { turns: 1, label: systemWord("DAGGERHEART.CONFIG.DeathMoves.blazeOfGlory.name", "DeathMove.blaze") };
+      c.lastStand = { turns: 1, label: deathMoveName("blaze") };
       c.dhNote = t("DeathMove.BlazeNote");
       return c.status;
     }
     if ( move === "risk" ) {
-      const hope = rng.die(12);
-      const fear = rng.die(12);
+      const [hope, fear] = shownDice(rng, [12, 12], { by: c, label: deathMoveName("risk") });
       if ( fear > hope ) {
         c.status = STATUS.DEAD;
         c.fallNote = t("DeathMove.RiskDies", { hope, fear });
@@ -612,7 +629,7 @@ export const daggerheartRules = {
     // Avoid Death: out cold (open to a finishing blow until a friend tends it); its Hope die at or under its level, a scar.
     c.status = STATUS.DOWN;
     c.stable = false;
-    const die = rng.die(12);
+    const [die] = shownDice(rng, [12], { by: c, label: deathMoveName("avoid") });
     c.scarred = die <= (c.spec.level ?? 1);
     c.fallNote = t(c.scarred ? "DeathMove.AvoidScar" : "DeathMove.Avoid", { n: die });
     return c.status;
@@ -728,9 +745,13 @@ export const daggerheartRules = {
     defense() {
       return 0;
     },
-    /** Rolls against the Vulnerable have advantage; against the Hidden, disadvantage. */
-    attack({ target }) {
-      const advantage = (target.conds?.vulnerable ? 1 : 0) - (target.conds?.hidden ? 1 : 0);
+    /**
+     * Rolls against the Vulnerable have advantage; against the Hidden, disadvantage: hidden from the one rolling (the
+     * core's hiddenFrom: not once it found the hider since).
+     */
+    attack({ target, attacker }) {
+      const hidden = attacker ? hiddenFrom(attacker, target) : !!target.conds?.hidden;
+      const advantage = (target.conds?.vulnerable ? 1 : 0) - (hidden ? 1 : 0);
       return { bonus: 0, advantage: Math.sign(advantage) };
     },
     save() {
@@ -760,8 +781,8 @@ export const daggerheartRules = {
     return null;
   },
   conditionMods(key) {
+    // (Hidden: only from those it's hidden from, modifiers.attack.)
     if ( key === "vulnerable" ) return { defAdv: 1 };
-    if ( key === "hidden" ) return { defAdv: -1 };
     return null;
   },
   resistShare() {
@@ -821,3 +842,14 @@ export const daggerheartRules = {
     return key === "restrained" ? "immobilized" : null;
   }
 };
+
+/**
+ * The rules for the planner's background workers (the core's API 22: adapter.workerRules): daggerheartRules as they are,
+ * but the world's "tied up stops spells" given as data (a worker reads no settings).
+ * @param {{tiedStopsSpells?: boolean}} [data]
+ */
+export function daggerheartRulesFor(data = {}) {
+  const own = Object.getOwnPropertyDescriptors(daggerheartRules);
+  delete own.tiedStopsSpells;
+  return Object.defineProperties({}, { ...own, tiedStopsSpells: { value: data?.tiedStopsSpells !== false, enumerable: true } });
+}

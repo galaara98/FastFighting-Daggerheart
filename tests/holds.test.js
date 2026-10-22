@@ -188,7 +188,7 @@ describe("a try at breaking free", () => {
       const { r, asked } = live({ degree: 2, natural: 13, total: 14, dice: { hope: 4, fear: 9 } });
       const u = unit({ escapeWork: work, conds: { restrained: 1, immobilized: 1 } });
       const got = daggerheartRules.breakFree(r, u, restrained);
-      expect(asked).toEqual([{ kind: "check", unitId: "u", targetId: null, purpose: "escape", skill: "agility", against: null, dc: 12, action: { id: null, name: "restrained" } }]);
+      expect(asked).toEqual([{ kind: "check", unitId: "u", targetId: null, purpose: "escape", skill: "agility", against: null, dc: 12, action: { id: null, name: "restrained" }, advantage: 0 }]);
       expect(got).toEqual({ success: true, degree: 2, dc: 12, said: { text: said("Agility", 13, 1, 14, 12, text("FFDAGGERHEART.Note.Fear", { hope: 4, fear: 9 })) } });
       // (With Fear: the GM's Fear and the spotlight, as any action roll's; no dice of the engine's rolled.)
       expect([u.sharedPools.fear, u.handoff, u.resources.hope]).toEqual([4, true, 2]);

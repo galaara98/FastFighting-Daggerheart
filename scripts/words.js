@@ -13,3 +13,7 @@ export const systemWord = (key, own, data = null) => (hasWords(key) ? localize(k
 /** The system's word for one of its resources (Hope, Stress, Fear, Armor Slots, Hit Points), else this module's. */
 const RESOURCE_KEYS = { hope: "hope", stress: "stress", fear: "fear", armor: "armorSlots", hp: "HitPoints.plural" };
 export const resourceWord = key => systemWord(`DAGGERHEART.GENERAL.${RESOURCE_KEYS[key] ?? key}`, `Resource.${key}`);
+
+/** A death move's name (avoid, risk, blaze): the system's, else this module's. */
+const DEATH_MOVES = { avoid: "avoidDeath", risk: "riskItAll", blaze: "blazeOfGlory" };
+export const deathMoveName = move => systemWord(`DAGGERHEART.CONFIG.DeathMoves.${DEATH_MOVES[move] ?? "avoidDeath"}.name`, `DeathMove.${move}`);

@@ -11,7 +11,7 @@ import { plainText as sheetText } from "./core.js";
 /** What each domain leans a character toward (a class has two; they add up). */
 const DOMAINS = Object.freeze({
   blade: { brawler: 0.4, impatient: 0.1 },
-  bone: { speedRunner: 0.3, instigator: 0.1 },
+  bone: { kiter: 0.3, instigator: 0.1 },
   valor: { tank: 0.5, martyr: 0.3 },
   midnight: { thief: 0.4, wallflower: 0.3 },
   grace: { diplomat: 0.4, peoplePleaser: 0.2 },

@@ -17,7 +17,7 @@
 import { STATUS, commonOutcome, statusesOf, statusEntry, toggleStatus, undoRecord, handOverItem } from "./core.js";
 import { FEAR_MAX } from "./rules.js";
 import { CONDITION_KEYS } from "./actions.js";
-import { t, systemWord, resourceWord } from "./words.js";
+import { t, systemWord, resourceWord, deathMoveName } from "./words.js";
 
 const SYSTEM = "daggerheart";
 
@@ -30,7 +30,6 @@ const hpMarked = (spec, left) => Math.max(0, Math.min(spec.hp.max, spec.hp.max -
 const harmTrack = spec => (spec.actorType === "companion" ? "stress" : spec.actorType === "npc" ? null : "hitPoints");
 /** Stress marked, from the Stress it had left. */
 const stressMarked = (spec, left) => Math.max(0, (spec.stressMax ?? 0) - Math.max(0, left));
-const deathMoveName = move => systemWord(`DAGGERHEART.CONFIG.DeathMoves.${{ avoid: "avoidDeath", risk: "riskItAll", blaze: "blazeOfGlory" }[move] ?? "avoidDeath"}.name`, `DeathMove.${move}`);
 
 /**
  * Human-readable list of what the fight changes, for the planner's summary of it. How it ended up is in the core's words

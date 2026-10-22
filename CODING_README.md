@@ -4,8 +4,8 @@ How this helper plugs into FastFighting Core, what each file does, the tables it
 
 ## Requirements
 
-- Foundry v14; the `daggerheart` system 2.10.0 or later (`relationships.systems` in `module.json`); FastFighting Core (`fast-fighting`) 0.4.0 or later (`relationships.requires`).
-- FastFighting Core's API version is `major.bug` (`api.version` "19.0", `api.major` 19, `api.bug` 0). The helper decides compatibility; the core never refuses it. `KNOWN_API` in `scripts/main.js` lists the API majors this helper is known to work with, currently [19]. When a new core major arrives, test the helper with it and add the major to `KNOWN_API`.
+- Foundry v14; the `daggerheart` system 2.10.0 or later (`relationships.systems` in `module.json`); FastFighting Core (`fast-fighting`) 0.7.0 or later (`relationships.requires`).
+- FastFighting Core's API version is `major.bug` (`api.version` "25.0", `api.major` 25, `api.bug` 0). The helper decides compatibility; the core never refuses it. `KNOWN_API` in `scripts/main.js` lists the API majors this helper is known to work with, currently [25]. When a new core major arrives, test the helper with it and add the major to `KNOWN_API`.
 - The helper relies on what API 18 brought, and API 19's system rolls (below): rolls by who rolls, the system's own round, shared pools, traits from parts, tactics answers with their reasons and what a character offers and expects, the shared sheet tools (statuses, undo records, an item handed over, a sheet's text, a number setting), and the outcome's common lines.
 
 ## How it plugs in
@@ -16,6 +16,12 @@ How this helper plugs into FastFighting Core, what each file does, the tables it
 - `ready`: warns a GM with `FFDAGGERHEART.NeedsCore` when the core isn't active.
 
 `scripts/core.js` re-exports `../../fast-fighting/scripts/core-api.js`: in Foundry the core sits one folder over in `Data/modules`. Every import from the core goes through it.
+
+What it takes up of the core since API 19:
+- **20:** every die the rules roll that a person would roll at the table is a table roll a live battle shows. The Duality Dice show as they are (`rules.roll`'s `shown`, the core's split): the Hope die, the Fear die, then the advantage or disadvantage d6 added or taken away. A sprint is a check through `ownCheck` (the system's Agility roll in a turn FastFighting plays, `check-roll.js` purpose `sprint`; else the rules' own dice, labelled `FFDAGGERHEART.Rolls.Sprint`). A death move's dice (`shownDice`, each die a roll of its own): Risk It All's Hope and Fear, Avoid Death's Hope die, and the Duality Dice of one struck while out cold (`FFDAGGERHEART.Rolls.StruckDown`). Hidden from one creature at a time: `modifiers.attack` takes disadvantage only where the core's `hiddenFrom` says the target is hidden from the attacker, and the hidden condition lays no `defAdv` of its own. The death-move map names `dps` where it named Speed Runner (stored playstyles read `dps` now), and Bone leans Kiter.
+- **22:** `workerRules()` gives the planner's background workers `rules.js`'s `daggerheartRulesFor(data)`, the rules with the world's `tiedStopsSpells` given as data (a worker reads no settings). `tests/workers-daggerheart.test.js` plays batches on real threads.
+- **23:** `spec.aptitudes` for a character (traits.js `aptitudesOf`: Knowledge smart, Strength strong, Agility fast, Instinct wise, Presence charismatic, each banded by `aptitudeBand`: -1 1, +0 2, +1 and +2 3, +3 or more 4). An adversary has none: the core's reading (`flags.beast`, a beast's wits).
+- **25 (needed):** `applyIwr` changes nothing for the Statistics Engine's estimate (`ctx.estimate`): no Armor Slot marked and no Stress taken, and a character with slots is reckoned to mark one against Major or worse, whatever it has left. Before, merely weighing a blow at a character marked its Armor Slots, in plans and in live battles, and the planner's results depended on the order its fights ran in.
 
 When new functionality needs something the core can't express "close enough" with what it already offers, request a new core hook rather than forcing a poor fit or working around the core.
 
